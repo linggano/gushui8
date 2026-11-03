@@ -13,6 +13,9 @@ pnpm-debug.log*
 dist/
 build/
 coverage/
+uploads/
+backups/
+database/
 
 .DS_Store
 Thumbs.db
