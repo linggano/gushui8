@@ -1,0 +1,65 @@
+//- RBAC 权限控制 Mixins
+//- 用于在 Pug 模板中根据用户权限显示/隐藏操作按钮
+
+//- 检查单个权限
+mixin ifCan(permission)
+    if userPermissions && userPermissions.includes(permission)
+        block
+
+//- 检查任意一个权限
+mixin ifCanAny(permissions)
+    if userPermissions && permissions.some(p => userPermissions.includes(p))
+        block
+
+//- 检查所有权限
+mixin ifCanAll(permissions)
+    if userPermissions && permissions.every(p => userPermissions.includes(p))
+        block
+
+//- 检查角色
+mixin ifHasRole(role)
+    if userRoles && userRoles.includes(role)
+        block
+
+//- 检查任意一个角色
+mixin ifHasAnyRole(roles)
+    if userRoles && roles.some(r => userRoles.includes(r))
+        block
+
+//- 检查是否是管理员
+mixin ifAdmin
+    if userRoles && userRoles.includes('admin')
+        block
+
+//- 权限按钮包装器
+mixin permissionButton(permission, buttonClass = 'btn btn-sm', icon = '', text = '')
+    if userPermissions && userPermissions.includes(permission)
+        if icon
+            a(class=buttonClass href='#')
+                i(class=icon + ' me-1')
+                | #{text}
+        else
+            a(class=buttonClass href='#')
+                | #{text}
+
+//- 删除按钮（用于子项移除操作）
+//- 参数:
+//-   childName  - 要移除的子项名称
+//-   parentName - 父项名称（可选，通常由页面 JS 提供）
+//-   text       - 按钮文字（默认: '删除'）
+//-   className  - 额外 CSS 类名
+//-
+//- 用法:
+//-   +deleteButton('route:view', 'permission:admin', '移除')
+mixin deleteButton(childName, parentName = '', text = '', className = '')
+    - const label = text || '删除'
+    - const cls = 'btn btn-sm btn-outline-danger btn-remove-child ' + className
+    button(
+        type='button'
+        class=cls
+        data-child-name=childName
+        data-parent-name=parentName
+        title=`移除 ${childName}`
+    )
+        i.bi.bi-trash.me-1
+        = label

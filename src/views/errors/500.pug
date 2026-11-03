@@ -1,0 +1,17 @@
+extends /layouts/adminlte4.pug
+
+block content
+    .content.d-flex.flex-column.align-items-center.justify-content-center.py-5(min-height='60vh')
+        .text-center
+            h1.text-danger.fw-bold.mb-0(style='font-size: 8rem; line-height: 1;') 500
+            h3.mt-3.mb-2
+                i.bi.bi-tools.me-2
+                | 服务器内部错误
+            p.text-muted.mb-4= message || '服务器遇到了意外错误，请稍后重试'
+            .d-flex.gap-2.justify-content-center
+                button.btn.btn-primary(type='button' onclick='location.reload()')
+                    i.bi.bi-arrow-clockwise.me-1
+                    | 重试
+                a.btn.btn-outline-secondary(href='/')
+                    i.bi.bi-house.me-1
+                    | 返回首页

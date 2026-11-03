@@ -1,0 +1,15 @@
+//- views/mixins/form.pug
+mixin inputField(label, name, type='text', value='', options={})
+  .form-group
+    label(for=name)= label
+    input.form-control(
+      id=name
+      name=name
+      type=type
+      value=value
+      class=options.errors && options.errors[name] ? 'is-invalid' : ''
+      placeholder=options.placeholder || `请输入${label}`
+      required=options.required || false
+    )
+    if options.errors && options.errors[name]
+      .invalid-feedback= options.errors[name].msg

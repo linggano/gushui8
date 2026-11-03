@@ -1,0 +1,13 @@
+//- 面包屑导航 mixin
+//- 用法: +breadcrumb([{ label: '首页', url: '/home' }, { label: '当前页' }])
+mixin breadcrumb(items)
+  - items = (items || []).filter(item => item)
+  if items.length
+    nav(aria-label='breadcrumb')
+      ol.breadcrumb.float-sm-end
+        each item, index in items
+          if index === items.length - 1
+            li.breadcrumb-item.active(aria-current='page')= item.label
+          else
+            li.breadcrumb-item
+              a(href=item.href || '#')= item.label

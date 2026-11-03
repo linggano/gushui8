@@ -1,0 +1,34 @@
+extends /layouts/adminlte4
+include /mixins/table.pug
+
+block content
+    .row
+        .col-sm-12 
+            +dataTable(
+                '用户管理',
+                [
+                    { title: '用户名', field: 'username' },
+                    { title: '邮箱', field: 'email' },
+                    { title: '手机号', field: 'phone' },
+                    { title: '状态', render: function(item) { return item.status === 10 ? '启用' : (item.status === 0 ? '禁用' : item.status); } },
+                    { title: '锁定状态', render: function(item) { return item.is_locked ? '<span class="badge text-bg-danger">已锁定</span>' : '<span class="badge text-bg-success">正常</span>'; } },
+                    { title: '偏好设置', field: 'home_route' }
+                ],
+                users.map(function(item) {
+                    return {
+                        id: item.id,
+                        username: item.username,
+                        email: item.email || '-',
+                        phone: item.phone || '-',
+                        status: item.status || '-',
+                        is_locked: item.is_locked || false,
+                        home_route: item.home_route || '-'
+                    };
+                }),
+                {
+                    show: '/users/detail/:id'
+                },
+                [],
+                pagination,
+                { searchable: true }
+            )

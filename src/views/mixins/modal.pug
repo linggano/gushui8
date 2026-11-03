@@ -1,0 +1,112 @@
+//- src/shared/views/mixins/modal.pug
+//- AdminLTE4 / Bootstrap 5 风格模态框混入
+//-
+//- 参数:
+//-   modalId   - 模态框ID（必填）
+//-   options   - 可选配置对象:
+//-     title       - 模态框标题（默认: '新增'）
+//-     icon        - 标题图标（Bootstrap Icons 类名，如: 'bi-person-square'）
+//-     size        - 模态框尺寸: 'sm' | '' | 'lg' | 'xl' | 'fullscreen'（默认: ''）
+//-     showClose   - 是否显示右上角关闭按钮（默认: true）
+//-     backdrop    - 背景配置: true | false | 'static'（默认: true）
+//-     keyboard    - 是否支持ESC键关闭（默认: true）
+//-     scrollable  - 是否可滚动（默认: false）
+//-     centered    - 是否垂直居中（默认: true）
+//-
+//- 用法:
+//-   +modal('roleModal', { title: '新增角色', size: 'lg', icon: 'bi-person-square' })
+//-     .row
+//-       .col-md-12
+//-         +formField('name', { label: '角色名', required: true })
+//-     block footerButtons
+//-       button.btn.btn-primary(type='button') 保存
+
+mixin modal(modalId, options = {})
+  - title = options.title || '新增'
+  - icon = options.icon || ''
+  - size = options.size || ''
+  - showClose = options.showClose !== false
+  - backdrop = options.backdrop !== undefined ? options.backdrop : true
+  - keyboard = options.keyboard !== undefined ? options.keyboard : true
+  - scrollable = options.scrollable || false
+  - centered = options.centered !== false
+  -
+  - modalClass = 'modal fade'
+  - dialogClass = 'modal-dialog'
+  - if (size === 'sm') dialogClass += ' modal-sm'
+  - if (size === 'lg') dialogClass += ' modal-lg'
+  - if (size === 'xl') dialogClass += ' modal-xl'
+  - if (size === 'fullscreen') dialogClass += ' modal-fullscreen'
+  - if (centered) dialogClass += ' modal-dialog-centered'
+  - if (scrollable) dialogClass += ' modal-dialog-scrollable'
+
+  div(id=modalId class=modalClass tabindex='-1' aria-labelledby=modalId + 'Label')
+    .dialog(class=dialogClass)
+      .modal-content
+        .modal-header
+          h5.modal-title(id=modalId + 'Label')
+            if icon
+              i(class=icon + ' me-2')
+            = title
+          if showClose
+            button.btn-close(type='button' data-bs-dismiss='modal' aria-label='Close')
+
+        .modal-body
+          block
+
+        .modal-footer
+          block footerButtons
+            if showClose
+              button.btn.btn-secondary(type='button' data-bs-dismiss='modal')
+                i.bi.bi-x-lg.me-1
+                | 取消
+              button.btn.btn-primary(type='button' id=modalId + 'SubmitBtn')
+                i.bi.bi-save.me-1
+                | 保存
+
+//- 确认对话框 mixin
+//- 用法: +confirmModal('deleteConfirmModal', { title: '确认删除', message: '确定要删除吗？', confirmText: '删除', confirmClass: 'btn-danger' })
+mixin confirmModal(modalId, options = {})
+  - title = options.title || '确认操作'
+  - message = options.message || '确定要执行此操作吗？'
+  - icon = options.icon || 'bi-exclamation-triangle'
+  - iconColor = options.iconColor || 'text-warning'
+  - confirmText = options.confirmText || '确认'
+  - confirmClass = options.confirmClass || 'btn-primary'
+  - cancelText = options.cancelText || '取消'
+  - size = options.size || 'sm'
+
+  div(id=modalId class='modal fade' tabindex='-1' aria-hidden='true')
+    .modal-dialog(class='modal-dialog-centered' + (size === 'sm' ? ' modal-sm' : ''))
+      .modal-content
+        .modal-body.text-center.p-4
+          i(class=icon + ' display-4 ' + iconColor + ' mb-3')
+          h5.mb-3= title
+          p.text-muted= message
+        
+        .modal-footer.justify-content-center.border-0
+          button.btn.btn-secondary(type='button' data-bs-dismiss='modal')= cancelText
+          button.btn(class=confirmClass id=modalId + 'ConfirmBtn')= confirmText
+
+//- 消息提示对话框 mixin
+//- 用法: +alertModal('infoModal', { title: '提示', message: '操作成功！', type: 'success' })
+mixin alertModal(modalId, options = {})
+  - title = options.title || '提示'
+  - message = options.message || ''
+  - type = options.type || 'info'
+  -
+  - iconMap = { success: 'bi-check-circle-fill', error: 'bi-x-circle-fill', warning: 'bi-exclamation-triangle-fill', info: 'bi-info-circle-fill' }
+  - colorMap = { success: 'text-success', error: 'text-danger', warning: 'text-warning', info: 'text-info' }
+  - icon = iconMap[type] || iconMap.info
+  - color = colorMap[type] || colorMap.info
+
+  div(id=modalId class='modal fade' tabindex='-1' aria-hidden='true')
+    .modal-dialog.modal-dialog-centered.modal-sm
+      .modal-content
+        .modal-body.text-center.p-4
+          i(class=icon + ' display-4 ' + color + ' mb-3')
+          h5.mb-2= title
+          p.text-muted.mb-0= message
+        
+        .modal-footer.justify-content-center.border-0
+          button.btn.btn-primary(type='button' data-bs-dismiss='modal') 确定

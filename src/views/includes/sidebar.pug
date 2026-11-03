@@ -1,0 +1,63 @@
+//- 路由高亮辅助函数
+- const isActiveUrl = (curRaw, rtRaw) => { const cur = String(curRaw || '').replace(/\/+$/, ''); const rt = String(rtRaw || '').replace(/\/+$/, ''); return !!cur && !!rt && rt !== '#' && (cur === rt || cur.startsWith(rt + '/')); };
+//- 同级节点中找最长匹配的 route 长度（避免 /system 误伤兄弟 /system/rbac）
+- const longestMatchLen = (siblings, current) => siblings.reduce((longest, s) => { const len = isActiveUrl(current, s.route) ? (String(s.route).length) : 0; return len > longest ? len : longest; }, 0);
+//- 递归判断菜单树中是否有子项命中当前路由（父级展开/高亮用）
+- const menuHasActive = (menu, current) => isActiveUrl(current, menu.route) || ((menu.children || []).some(c => menuHasActive(c, current)));
+
+//- 侧边栏导航项 mixin（支持动态 menuTree，递归渲染）
+mixin sidebarItem(menu, current, siblings)
+    - const sibs = siblings || [menu];
+    if menu.children && menu.children.length > 0
+        //- 有子菜单的项
+        - const hasActive = menuHasActive(menu, current);
+        li.nav-item(class={ active: hasActive, 'menu-open': hasActive })
+            a.nav-link(href='#' class={ active: hasActive })
+                if menu.data
+                    - const menuData = typeof menu.data === 'string' ? JSON.parse(menu.data) : menu.data;
+                    if menuData.icon
+                        i.nav-icon(class=menuData.icon)
+                    else
+                        i.nav-icon.bi.bi-folder
+                else
+                    i.nav-icon.bi.bi-folder
+                p= menu.name
+                    i.nav-arrow.bi.bi-chevron-right
+            ul.nav.nav-treeview
+                each child in menu.children
+                    +sidebarItem(child, current, menu.children)
+    else
+        //- 无子菜单的项（叶子节点）：只在它是同级兄弟中"最长匹配"时才高亮
+        - const myLen = isActiveUrl(current, menu.route) ? String(menu.route).length : 0;
+        - const isActive = myLen > 0 && myLen >= longestMatchLen(sibs, current);
+        li.nav-item(class={ active: isActive })
+            a.nav-link(href=menu.route || '#' class={ active: isActive })
+                if menu.data
+                    - const menuData = typeof menu.data === 'string' ? JSON.parse(menu.data) : menu.data;
+                    if menuData.icon
+                        i.nav-icon(class=menuData.icon)
+                    else
+                        i.nav-icon.bi.bi-circle
+                else
+                    i.nav-icon.bi.bi-circle
+                p= menu.name
+
+//- 侧边栏导航树 mixin
+mixin sidebarNav(menuTree, current)
+    each menu in menuTree
+        +sidebarItem(menu, current, menuTree)
+
+//- 完整侧边栏 mixin
+mixin sidebar(brandName, brandLogo, menuTree, user)
+    aside.app-sidebar.bg-body-secondary.shadow(data-bs-toggle='sidebar')
+        .sidebar-brand
+            a.brand-link(href='/')
+                img.brand-image.opacity-75.shadow(src=brandLogo alt=brandName)
+                span.brand-text.fw-light= brandName
+
+        .sidebar-wrapper
+            nav.mt-2(aria-label='Main navigation')
+                ul.nav.sidebar-menu.flex-column(data-lte-toggle='treeview' data-accordion='false')
+                    //- 动态菜单（由数据库 menu 表 + 用户路由权限驱动）
+                    if menuTree && menuTree.length > 0
+                        +sidebarNav(menuTree, currentUrl)

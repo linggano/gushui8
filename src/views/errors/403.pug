@@ -1,0 +1,29 @@
+extends /layouts/adminlte4.pug
+
+block content
+    .content.d-flex.flex-column.align-items-center.justify-content-center.py-5(min-height='60vh')
+        .text-center
+            h1.text-warning.fw-bold.mb-0(style='font-size: 8rem; line-height: 1;') 403
+            h3.mt-3.mb-2
+                i.bi.bi-shield-lock.me-2
+                | 访问被拒绝
+            p.text-muted.mb-4= message || '您没有权限访问此页面，请联系管理员'
+            .d-flex.gap-2.justify-content-center
+                a.btn.btn-primary(href=homeRoute || '/')
+                    i.bi.bi-house.me-1
+                    | 返回首页
+                button.btn.btn-outline-secondary(type='button', id='btnBack')
+                    i.bi.bi-arrow-left.me-1
+                    | 返回上一页
+
+block scripts
+    script.
+        (function() {
+            var lastRoute = localStorage.getItem('lastRoute');
+            var btn = document.getElementById('btnBack');
+            if (lastRoute && lastRoute !== window.location.pathname) {
+                btn.onclick = function() { window.location.href = lastRoute; };
+            } else {
+                btn.onclick = function() { history.back(); };
+            }
+        })();

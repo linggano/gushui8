@@ -1,0 +1,207 @@
+extends /layouts/adminlte4.pug
+
+block content
+    .row
+        .col-lg-3.col-md-6
+            .small-box.text-bg-primary
+                .inner
+                    h3= employeeCount || 0
+                    p 用户管理
+                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="small-box-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
+                </svg>
+                a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href="/system/rbac/users")
+                    i.bi.bi-link-45deg.me-1
+                    | 进入管理
+
+        .col-lg-3.col-md-6
+            .small-box.text-bg-success
+                .inner
+                    h3= roleCount || 0
+                    p 角色管理
+                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="small-box-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/>
+                <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zm12 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1v-1c0-1-1-4-6-4s-6 3-6 4v1a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
+                </svg>
+                a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href="/system/rbac/roles")
+                    i.bi.bi-link-45deg.me-1
+                    | 进入管理
+
+        .col-lg-3.col-md-6
+            .small-box.text-bg-warning
+                .inner
+                    h3= permissionCount || 0
+                    p 权限管理
+                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="small-box-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0m-9 8c0 1 1 1 1 1h5.256A4.5 4.5 0 0 1 8 12.5a4.5 4.5 0 0 1 1.544-3.393Q8.844 9.002 8 9c-5 0-6 3-6 4m9.886-3.54c.18-.613 1.048-.613 1.229 0l.043.148a.64.64 0 0 0 .921.382l.136-.074c.561-.306 1.175.308.87.869l-.075.136a.64.64 0 0 0 .382.92l.149.045c.612.18.612 1.048 0 1.229l-.15.043a.64.64 0 0 0-.38.921l.074.136c.305.561-.309 1.175-.87.87l-.136-.075a.64.64 0 0 0-.92.382l-.045.149c-.18.612-1.048.612-1.229 0l-.043-.15a.64.64 0 0 0-.921-.38l-.136.074c-.561.305-1.175-.309-.87-.87l.075-.136a.64.64 0 0 0-.382-.92l-.148-.045c-.613-.18-.613-1.048 0-1.229l.148-.043a.64.64 0 0 0 .382-.921l-.074-.136c-.306-.561.308-1.175.869-.87l.136.075a.64.64 0 0 0 .92-.382zM14 12.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0"/>
+                </svg>
+                a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href="/system/rbac/permissions")
+                    i.bi.bi-link-45deg.me-1
+                    | 进入管理
+
+        .col-lg-3.col-md-6
+            .small-box.text-bg-info
+                .inner
+                    h3= routeCount || 0
+                    p 路由管理
+                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="small-box-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9q-.13 0-.25.031A2 2 0 0 1 7 10.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z"/>
+                <path d="M9 5.5a3 3 0 0 0-2.83 4h1.098A2 2 0 0 1 9 6.5h3a2 2 0 1 1 0 4h-1.535a4 4 0 0 1-.82 1H12a3 3 0 1 0 0-6z"/>
+                </svg>
+                a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href="/system/rbac/routes")
+                    i.bi.bi-link-45deg.me-1
+                    | 进入管理
+
+    .row.mt-4
+        .col-12
+            .card
+                .card-header
+                    h3.card-title 可用规则列表
+                    .card-tools
+                        a.btn.btn-sm.btn-primary(href="/system/rbac/rules")
+                            i.bi.bi-rulers.me-2
+                            | 进入规则管理
+                .card-body
+                    .table-responsive
+                        table.table.table-hover.table-striped
+                            thead
+                                tr
+                                    th 规则名称
+                                    th 规则数据
+                            tbody
+                                if rulesMeta && rulesMeta.length
+                                    each rule in rulesMeta
+                                        if rule
+                                            tr
+                                                td
+                                                    code.text-primary= rule.name
+                                                td.text-muted
+                                                    if rule.data
+                                                        code= JSON.stringify(rule.data)
+                                                    else
+                                                        | -
+                                else
+                                    tr
+                                        td.text-center.text-muted.py-3(colspan='2') 暂无可用规则
+
+    .row.mt-4
+        .col-12
+            .card
+                .card-header.bg-primary
+                    h3.card-title.text-white
+                        i.bi.bi-book.me-2
+                        | RBAC 使用说明
+                .card-body
+                    .row
+                        .col-md-6
+                            .alert.alert-info
+                                h5
+                                    i.bi.bi-info-circle.me-2
+                                    | 什么是 RBAC？
+                                p.mb-0 RBAC（Role-Based Access Control）是基于角色的访问控制系统。通过为用户分配角色，为角色分配权限，实现对系统资源的精细化权限管理。
+
+                            .card.mb-3
+                                .card-header.bg-success
+                                    h6.card-title.text-white
+                                        i.bi.bi-gear-wide-connected.me-2
+                                        | 核心概念
+                                .card-body
+                                    dl.row.mb-0
+                                        dt.col-sm-4
+                                            i.bi.bi-person-badge.text-primary.me-1
+                                            | 用户（User）
+                                        dd.col-sm-8 系统的使用者，可以是员工或外部用户
+
+                                        dt.col-sm-4
+                                            i.bi.bi-shield-lock.text-success.me-1
+                                            | 角色（Role）
+                                        dd.col-sm-8 权限的集合，如管理员、财务主管等
+
+                                        dt.col-sm-4
+                                            i.bi.bi-key.text-warning.me-1
+                                            | 权限（Permission）
+                                        dd.col-sm-8 对特定资源的访问和操作权利
+
+                                        dt.col-sm-4
+                                            i.bi.bi-signpost-split.text-info.me-1
+                                            | 路由（Route）
+                                        dd.col-sm-8 系统的路径及访问规则
+
+                                        dt.col-sm-4
+                                            i.bi.bi-code-slash.text-danger.me-1
+                                            | 规则（Rule）
+                                        dd.col-sm-8 权限判断的业务逻辑，如数据范围限制
+
+                        .col-md-6
+                            .card.mb-3
+                                .card-header.bg-info
+                                    h6.card-title.text-white
+                                        i.bi.bi-list-ol.me-2
+                                        | 操作流程
+                                .card-body
+                                    ol.mb-0
+                                        li.mb-2
+                                            strong 创建角色
+                                            p.mb-0.text-muted.small 进入角色管理，创建新角色并设置描述
+                                        li.mb-2
+                                            strong 配置权限
+                                            p.mb-0.text-muted.small 为角色分配权限、路由和子角色
+                                        li.mb-2
+                                            strong 分配用户
+                                            p.mb-0.text-muted.small 进入用户管理，为用户分配相应角色
+                                        li.mb-2
+                                            strong 权限生效
+                                            p.mb-0.text-muted.small 系统根据角色自动判断用户权限
+
+                            .card
+                                .card-header.bg-warning
+                                    h6.card-title.text-dark
+                                        i.bi.bi-exclamation-triangle.me-2
+                                        | 注意事项
+                                .card-body
+                                    ul.mb-0
+                                        li.mb-2
+                                            strong 角色名称
+                                            span.text-muted.small  - 一旦创建不可修改，请谨慎命名
+                                        li.mb-2
+                                            strong 权限继承
+                                            span.text-muted.small  - 子角色自动继承父角色的权限
+                                        li.mb-2
+                                            strong 过期时间
+                                            span.text-muted.small  - 可以为角色分配设置过期时间
+                                        li.mb-2
+                                            strong 审计日志
+                                            span.text-muted.small  - 所有权限操作都有详细记录
+                                        li.mb-2
+                                            strong 循环依赖
+                                            span.text-muted.small  - 系统会自动检测并阻止循环角色继承
+
+                    .row.mt-4
+                        .col-12
+                            .card.bg-light
+                                .card-body
+                                    h5
+                                        i.bi.bi-lightbulb.text-warning.me-2
+                                        | 最佳实践
+                                    .row
+                                        .col-md-4
+                                            .d-flex.align-items-start.mb-3
+                                                i.bi.bi-check-circle-fill.text-success.fs-4.me-2
+                                                div
+                                                    strong 最小权限原则
+                                                    p.mb-0.text-muted.small 只授予用户完成工作所需的最小权限
+                                        .col-md-4
+                                            .d-flex.align-items-start.mb-3
+                                                i.bi.bi-people-fill.text-primary.fs-4.me-2
+                                                div
+                                                    strong 角色分组
+                                                    p.mb-0.text-muted.small 按部门或职能创建角色，便于管理
+                                        .col-md-4
+                                            .d-flex.align-items-start.mb-3
+                                                i.bi.bi-arrow-repeat.text-info.fs-4.me-2
+                                                div
+                                                    strong 定期审查
+                                                    p.mb-0.text-muted.small 定期检查用户权限，及时清理过期权限
+
+block prepend scripts
+    script(src="/npm/jquery/dist/jquery.min.js", nonce=nonce)

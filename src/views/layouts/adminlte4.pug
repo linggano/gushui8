@@ -1,0 +1,466 @@
+doctype html
+html(lang='zh-CN')
+    head
+        meta(http-equiv='Content-Type' content='text/html; charset=utf-8')
+        meta(name='viewport' content='width=device-width, initial-scale=1.0, user-scalable=yes')
+        meta(name='color-scheme' content='light dark')
+        meta(name='theme-color' content='#007bff' media='(prefers-color-scheme: light)')
+        meta(name='theme-color' content='#1a1a1a' media='(prefers-color-scheme: dark)')
+        meta(name='supported-color-schemes' content='light dark')
+        meta(name='csrf-token' content=csrfToken)
+        title= title || 'PESS'
+        
+        block metas
+        
+        link(rel='stylesheet' href='/npm/@fontsource/open-sans/index.css' crossorigin='anonymous')
+        link(rel='stylesheet' href='/npm/overlayscrollbars/styles/overlayscrollbars.min.css' crossorigin='anonymous')
+        link(rel='stylesheet' href='/npm/bootstrap-icons/font/bootstrap-icons.min.css' crossorigin='anonymous')
+        link(rel='stylesheet' href='/npm/adminlte4/dist/css/adminlte.min.css')
+        
+        block styles
+    
+    body(class='layout-fixed sidebar-expand-lg bg-body-tertiary app-loaded')
+        .app-wrapper
+            nav(class='app-header navbar navbar-expand bg-body' id='navigation' tabindex='-1')
+                .container-fluid
+                    ul.navbar-nav
+                        li.nav-item
+                            a.nav-link(href='#' data-lte-toggle='sidebar' role='button' aria-label='Toggle sidebar')
+                                i.bi.bi-list
+                        li.nav-item.d-none.d-md-block
+                            a.nav-link(href='/home')
+                                i.bi.bi-house.me-1(aria-hidden='true')
+                                | 首页
+                        li.nav-item.d-none.d-md-block
+                            a.nav-link(href='/home/help')
+                                i.bi.bi-book.me-1(aria-hidden='true')
+                                | 帮助
+
+                    ul.navbar-nav.ms-auto
+                        //- Lockscreen
+                        li.nav-item
+                            a#btnLockScreen.nav-link(href='#' role='button' aria-label='锁屏' title='锁屏')
+                                i.bi.bi-shield-lock
+
+                        //- Messages Dropdown Menu
+                        li.nav-item.dropdown
+                            a.nav-link(href='#' data-bs-toggle='dropdown' aria-label='Messages: 3 unread' title='Messages: 3 unread')
+                                i.bi.bi-chat-text
+                                span.navbar-badge.badge.text-bg-danger
+                                    | 3
+                            .dropdown-menu.dropdown-menu-lg.dropdown-menu-end
+                                a.dropdown-item(href='#')
+                                    //- Message
+                                    .d-flex
+                                        .flex-shrink-0
+                                            img.img-size-50.rounded-circle.me-3(src='/npm/adminlte4/dist/assets/img/avatar.png' alt='Avatar')
+                                    .flex-grow-1
+                                        p.dropdown-item-title
+                                            | New Message
+                                            span.float-end.fs-7.text-danger
+                                                i.bi.bi-star-fill
+                                        p.fs-7
+                                            | Call me whenever you can...
+                                        p.fs-7.text-secondary
+                                            i.bi.bi-clock-fill.me-1
+                                                | 12h ago
+
+                                .dropdown-divider
+
+                                a.dropdown-item(href='#')
+                                    //- Message
+                                    .d-flex
+                                        .flex-shrink-0
+                                            img.img-size-50.rounded-circle.me-3(src='/npm/adminlte4/dist/assets/img/avatar.png' alt='Avatar')
+                                    .flex-grow-1
+                                        p.dropdown-item-title
+                                            | New Message
+                                            span.float-end.fs-7.text-danger
+                                                i.bi.bi-star-fill
+                                        p.fs-7
+                                            | Call me whenever you can...
+                                        p.fs-7.text-secondary
+                                            i.bi.bi-clock-fill.me-1
+                                                | 1h ago
+            
+                        //- Notifications Dropdown Menu
+                        li.nav-item.dropdown
+                            - const notifCount = unreadNotificationCount || 0
+                            a.nav-link(href='#' data-bs-toggle='dropdown' aria-label=`Notifications: ${notifCount} unread` title=`Notifications: ${notifCount} unread`)
+                                i.bi.bi-bell-fill
+                                if notifCount > 0
+                                    span.navbar-badge.badge.text-bg-warning
+                                        | #{notifCount > 99 ? '99+' : notifCount}
+                            .dropdown-menu.dropdown-menu-lg.dropdown-menu-end
+                                span.dropdown-item.dropdown-header
+                                    | #{notifCount} 条未读通知
+                                .dropdown-divider
+                                if notifCount > 0
+                                    a.dropdown-item.text-center.text-primary.fw-bold(href='/notifications/inbox')
+                                        i.bi.bi-envelope-open.me-2
+                                        | 查看全部通知
+                                else
+                                    .dropdown-item.text-center.text-muted
+                                        i.bi.bi-check-circle.me-2
+                                        | 暂无未读通知
+                                .dropdown-divider
+                                a.dropdown-item(href='/notifications/inbox/read-all' data-confirm='确定要全部标记为已读吗？')
+                                    i.bi.bi-check-all.me-2
+                                    | 全部标记为已读
+
+                        //- Preference Settings
+                        if user && user.id
+                            li.nav-item
+                                a.nav-link(href='#' data-bs-toggle='modal' data-bs-target='#preferenceModal' aria-label='偏好设置' title='偏好设置')
+                                    i.bi.bi-gear-wide-connected
+
+                        //- Fullscreen Toggle
+                        li.nav-item
+                            a.nav-link(href='#' data-lte-toggle='fullscreen' role='button' aria-label='Toggle fullscreen' title='Toggle fullscreen')
+                                i.bi.bi-arrows-fullscreen(data-lte-icon='maximize')
+                                i.bi.bi-fullscreen-exit.d-none(data-lte-icon='minimize')
+
+                        //- Color Mode Toggle
+                        li.nav-item 
+                            a.nav-link(href='#' id='bd-theme' data-bs-toggle='dropdown' aria-expanded='false' aria-label='Toggle color mode')
+                                i.bi.bi-moon-fill(data-lte-theme-icon='dark')
+                                i.bi.bi-sun-fill.d-none(data-lte-theme-icon='light')
+                                i.bi.bi-circle-half.d-none(data-lte-theme-icon='auto')
+                            ul.dropdown-menu.dropdown-menu-end(aria-labelledby='bd-theme' style='--bs-dropdown-min-width: 8rem')
+                                li 
+                                    button.dropdown-item.d-flex.align-items-center(type='button' data-bs-theme-value='light' aria-pressed='false')
+                                        i.bi.bi-sun-fill.me-2
+                                            | Light
+                                        i.bi.bi-check-lg.ms-auto.d-none
+                                li 
+                                    button.dropdown-item.d-flex.align-items-center(type='button' data-bs-theme-value='dark' aria-pressed='false')
+                                        i.bi.bi-moon-fill.me-2
+                                            | Dark
+                                        i.bi.bi-check-lg.ms-auto.d-none
+                                li 
+                                    button.dropdown-item.d-flex.align-items-center(type='button' data-bs-theme-value='auto' aria-pressed='true')
+                                        i.bi.bi-circle-half.me-2
+                                            | Auto
+                                        i.bi.bi-check-lg.ms-auto.d-none
+
+                        //- User Menu Dropdown
+                        li.nav-item.dropdown.user-menu
+                            a.nav-link.dropdown-toggle(href='#' data-bs-toggle='dropdown')
+                                img.user-image.rounded-circle.shadow(src=userAvatar || '/npm/adminlte4/dist/assets/img/user2-160x160.jpg' alt='User Image')
+                                span.d-none.d-md-inline
+                                    | #{user ? user.username : '用户'}
+                            ul.dropdown-menu.dropdown-menu-lg.dropdown-menu-end
+                                li.user-header.text-bg-primary
+                                    img.rounded-circle.shadow(src=userAvatar || '/npm/adminlte4/dist/assets/img/user2-160x160.jpg' alt='User Image')  
+                                    p= (user ? user.username : '用户') + ' - Web Developer'
+                                        small Member since Nov. 2023
+                                li.user-body
+                                    .row
+                                        .col-4.text-center
+                                            a(href='#') Followers
+                                        .col-4.text-center
+                                            a(href='#') Sales
+                                        .col-4.text-center
+                                            a(href='#') Friends
+                                li.user-footer
+                                    a.btn.btn-outline-secondary(href=user ? '/employees/profiles/my/' + user.id : '#')
+                                        | 个人信息
+                                    a.btn.btn-outline-danger.float-end(href='/auth/logout')
+                                        | 退出登录
+
+            include /includes/sidebar.pug
+            +sidebar('PESS', '/npm/adminlte4/dist/assets/img/AdminLTELogo.png', menuTree || [], user)
+            
+            main.app-main
+                .app-content-header
+                    .container-fluid
+                        .row
+                            .col-sm-6
+                                h1.mb-0.fs-3= title || '默认标题'
+                            .col-sm-6
+                                include /includes/breadcrumb.pug
+                                +breadcrumb(breadcrumb)
+                
+                .app-content
+                    .container-fluid
+                        .row
+                            .col-12
+                                block flash-messages
+                                    if success && success.length
+                                        each msg in success
+                                            .alert.alert-success.alert-dismissible.fade.show(role='alert')
+                                                i.bi.bi-check-circle.me-2
+                                                | #{msg}
+                                                button.btn-close(type='button' data-bs-dismiss='alert')
+                                    if error && error.length
+                                        each msg in error
+                                            .alert.alert-danger.alert-dismissible.fade.show(role='alert')
+                                                i.bi.bi-exclamation-triangle.me-2
+                                                | #{msg}
+                                                button.btn-close(type='button' data-bs-dismiss='alert')
+                                    if warning && warning.length
+                                        each msg in warning
+                                            .alert.alert-warning.alert-dismissible.fade.show(role='alert')
+                                                i.bi.bi-exclamation-triangle.me-2
+                                                | #{msg}
+                                                button.btn-close(type='button' data-bs-dismiss='alert')
+                                    if flashInfo && flashInfo.length
+                                        each msg in flashInfo
+                                            .alert.alert-info.alert-dismissible.fade.show(role='alert')
+                                                i.bi.bi-info-circle.me-2
+                                                | #{msg}
+                                                button.btn-close(type='button' data-bs-dismiss='alert')
+                            
+                        block content
+            
+            footer.app-footer
+                .container-fluid
+                    .row
+                        .col-sm-6
+                            span &copy; #{new Date().getFullYear()} PESS
+                        .col-sm-6.text-end
+                            span 技术支持 PESS Team
+                            | &nbsp;|&nbsp;
+                            span.text-muted(id='perf-info')
+                                i.bi.bi-speedometer2.me-1
+                                | 加载: #{typeof startTime !== 'undefined' ? (Date.now() - startTime) + 'ms' : '-'}
+                                |  / 内存: #{typeof startMemory !== 'undefined' ? (startMemory.rss / 1024 / 1024).toFixed(1) + 'MB' : '-'}
+
+        //- Preference Modal
+        if user && user.id
+            div.modal.fade(id='preferenceModal' tabindex='-1' aria-labelledby='preferenceModalLabel' aria-hidden='true')
+                div.modal-dialog.modal-dialog-centered
+                    div.modal-content
+                        div.modal-header
+                            h5.modal-title#preferenceModalLabel
+                                i.bi.bi-gear-wide-connected.me-2
+                                | 偏好设置
+                            button.btn-close(type='button' data-bs-dismiss='modal' aria-label='关闭')
+                        form(method='post' action=`/users/${user.id}/settings` id='preferenceForm')
+                            input(type='hidden' name='_csrf' value=csrfToken)
+                            input(type='hidden' name='home_route' id='prefHomeRoute' value='')
+                            div.modal-body
+                                .mb-3
+                                    label.form-label 下次登录后的默认首页
+                                    .input-group
+                                        span.input-group-text
+                                            i.bi.bi-pin-angle
+                                        input.form-control#prefCurrentRoute(type='text' readonly)
+                                    if user.home_route
+                                        .form-text.text-muted.mt-1
+                                            i.bi.bi-check-circle.text-success.me-1
+                                            | 当前默认：
+                                            strong= user.home_route
+                            div.modal-footer
+                                button.btn.btn-outline-secondary(type='button' data-bs-dismiss='modal') 取消
+                                button.btn.btn-primary(type='submit' id='savePreferenceBtn')
+                                    i.bi.bi-pin-angle-fill.me-1
+                                    | 设为默认首页
+
+        script(src='/npm/overlayscrollbars/browser/overlayscrollbars.browser.es6.min.js' nonce=nonce)
+        script(src='/npm/@popperjs/core/dist/umd/popper.min.js' nonce=nonce)
+        script(src='/npm/bootstrap/dist/js/bootstrap.min.js' nonce=nonce)
+        script(src='/npm/adminlte4/dist/js/adminlte.min.js' nonce=nonce)
+        script(nonce=nonce).
+            const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
+            const Default = {
+                scrollbarTheme: 'os-theme-light',
+                scrollbarAutoHide: 'leave',
+                scrollbarClickScroll: true,
+            };
+            document.addEventListener('DOMContentLoaded', function () {
+                const sidebarWrapper = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
+
+                // Disable OverlayScrollbars on mobile devices to prevent touch interference
+                const isMobile = window.innerWidth <= 992;
+
+                if (
+                sidebarWrapper &&
+                OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined &&
+                !isMobile
+                ) {
+                    OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
+                        scrollbars: {
+                        theme: Default.scrollbarTheme,
+                        autoHide: Default.scrollbarAutoHide,
+                        clickScroll: Default.scrollbarClickScroll,
+                        },
+                    });
+                }
+            });
+
+        //- 偏好设置弹窗 JS
+        script(nonce=nonce).
+            document.addEventListener('DOMContentLoaded', function () {
+                var prefModal = document.getElementById('preferenceModal');
+                var prefCurrentRoute = document.getElementById('prefCurrentRoute');
+                var prefHomeRoute = document.getElementById('prefHomeRoute');
+
+                if (!prefModal) return;
+
+                prefModal.addEventListener('show.bs.modal', function () {
+                    var path = window.location.pathname.replace(/\/$/, '') || '/home';
+                    if (prefCurrentRoute) prefCurrentRoute.value = path;
+                    if (prefHomeRoute) prefHomeRoute.value = path;
+                });
+            });
+
+        script(nonce=nonce).
+            (function() {
+                'use strict';
+
+                const LOCK_TIMEOUT = 5 * 60 * 1000;       // 5 分钟
+                const LOCK_URL = '/auth/lock';             // 触发锁屏
+                const LOCKSCREEN_URL = '/auth/lockscreen'; // 锁屏页
+                const STORAGE_KEY = 'lock_return_url';     // sessionStorage 的 key
+
+                let lockTimer;
+
+                // ==========================================================
+                // 1. 锁屏（手动或自动）
+                // ==========================================================
+                window.__lockScreen__ = function() {
+                    // 保存当前路径到 sessionStorage（每个 tab 独立）
+                    const currentPath = window.location.pathname + window.location.search;
+                    sessionStorage.setItem(STORAGE_KEY, currentPath);
+
+                    // 跳转到锁屏路由（后端会记录到 session）
+                    window.location.href = LOCK_URL + '?return=' + encodeURIComponent(currentPath);
+                };
+
+                // 绑定手动锁屏按钮（CSP 禁止内联 onclick，需用 addEventListener）
+                // 按钮在所有页面模板中，脚本在此处执行时 DOM 已就绪
+                var lockButton = document.getElementById('btnLockScreen');
+                if (lockButton) {
+                    lockButton.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        window.__lockScreen__();
+                    });
+                }
+
+                // ==========================================================
+                // 2. 自动锁屏定时器
+                // ==========================================================
+                function resetLockTimer() {
+                    clearTimeout(lockTimer);
+                    lockTimer = setTimeout(function() {
+                        // 排除登录页、锁屏页
+                        const path = window.location.pathname;
+                        if (path === LOCKSCREEN_URL || path.startsWith('/auth/')) {
+                            return;
+                        }
+                        window.__lockScreen__();
+                    }, LOCK_TIMEOUT);
+                }
+
+                // ==========================================================
+                // 3. 监听用户活动
+                // ==========================================================
+                const events = [
+                    'mousedown', 'mousemove', 'keypress',
+                    'scroll', 'touchstart', 'click'
+                ];
+                events.forEach(function(event) {
+                    document.addEventListener(event, resetLockTimer, true);
+                });
+
+                resetLockTimer();
+
+                // ==========================================================
+                // 4. 暴露到全局，供别处调用
+                // ==========================================================
+                window.__resetLockTimer__ = resetLockTimer;
+            })();
+
+        //- 通知未读数量定时刷新
+        script(nonce=nonce).
+            (function() {
+                'use strict';
+
+                const NOTIFICATION_REFRESH_INTERVAL = 60 * 1000; // 60秒刷新一次
+
+                function refreshUnreadCount() {
+                    fetch('/notifications/unread-count', {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(function(response) {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        return null;
+                    })
+                    .then(function(data) {
+                        if (data && data.unreadCount !== undefined) {
+                            const count = data.unreadCount;
+                            const badge = document.querySelector('.nav-item.dropdown .navbar-badge');
+                            const link = document.querySelector('.nav-item.dropdown a.nav-link[data-bs-toggle="dropdown"]');
+                            
+                            if (count > 0) {
+                                if (!badge) {
+                                    const newBadge = document.createElement('span');
+                                    newBadge.className = 'navbar-badge badge text-bg-warning';
+                                    newBadge.textContent = count > 99 ? '99+' : count;
+                                    link.appendChild(newBadge);
+                                } else {
+                                    badge.textContent = count > 99 ? '99+' : count;
+                                }
+                                
+                                if (link) {
+                                    link.setAttribute('aria-label', 'Notifications: ' + count + ' unread');
+                                    link.setAttribute('title', 'Notifications: ' + count + ' unread');
+                                }
+                            } else {
+                                if (badge) {
+                                    badge.remove();
+                                }
+                                if (link) {
+                                    link.setAttribute('aria-label', 'Notifications: 0 unread');
+                                    link.setAttribute('title', 'Notifications: 0 unread');
+                                }
+                            }
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Failed to refresh unread count:', error);
+                    });
+                }
+
+                // 页面加载后开始定时刷新
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        setInterval(refreshUnreadCount, NOTIFICATION_REFRESH_INTERVAL);
+                    });
+                } else {
+                    setInterval(refreshUnreadCount, NOTIFICATION_REFRESH_INTERVAL);
+                }
+            })();
+
+            // CSP-compliant confirm dialog handler for data-confirm attributes
+            (function() {
+                function handleConfirm(e) {
+                    var message = this.getAttribute('data-confirm');
+                    if (message && !confirm(message)) {
+                        e.preventDefault();
+                    }
+                }
+                function initConfirmHandlers() {
+                    // Handle links with data-confirm
+                    document.querySelectorAll('a[data-confirm]').forEach(function(link) {
+                        link.addEventListener('click', handleConfirm);
+                    });
+                    // Handle forms with data-confirm
+                    document.querySelectorAll('form[data-confirm]').forEach(function(form) {
+                        form.addEventListener('submit', handleConfirm);
+                    });
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initConfirmHandlers);
+                } else {
+                    initConfirmHandlers();
+                }
+            })();
+
+        block scripts

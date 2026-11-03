@@ -1,0 +1,197 @@
+extends /layouts/adminlte4.pug
+
+block append styles
+    style.
+        .small-box { min-height: 110px; }
+        .small-box .inner h3 { white-space: nowrap; }
+        .small-box .inner h3 small { font-size: 0.55em; margin-left: 2px; }
+
+block content
+    //- 系统概览卡片
+    .row
+        .col-lg-3.col-6
+            .small-box.text-bg-info
+                .inner
+                    h3= stats.tableCount || 0
+                    p 数据表
+                .small-box-icon
+                    i.bi.bi-database
+        .col-lg-3.col-6
+            .small-box.text-bg-success
+                .inner
+                    h3= stats.dbSizeFormatted || 'N/A'
+                    p 数据库大小
+                .small-box-icon
+                    i.bi.bi-hdd
+        .col-lg-3.col-6
+            .small-box.text-bg-warning
+                .inner
+                    h3= stats.cpus || 0
+                    p CPU 核心
+                .small-box-icon
+                    i.bi.bi-cpu
+        .col-lg-3.col-6
+            .small-box.text-bg-danger
+                .inner
+                    h3
+                        = stats.memUsage || 0
+                        small %
+                    p 内存占用
+                .small-box-icon
+                    i.bi.bi-memory
+
+    .row.mb-1
+        //- 数据库信息
+        .col-md-8
+            .card
+                .card-header
+                    h3.card-title
+                        i.bi.bi-database.me-2
+                        | 数据库信息
+                .card-body.p-0
+                    table.table.table-striped.mb-0
+                        tbody
+                            tr
+                                td.text-muted(style="width:180px") 数据库文件
+                                td
+                                    code= stats.dbSize ? 'database.sqlite' : 'N/A'
+                            tr
+                                td.text-muted 文件大小
+                                td= stats.dbSizeFormatted || 'N/A'
+                            tr
+                                td.text-muted Session 库大小
+                                td= stats.sessionDbSizeFormatted || 'N/A'
+                            tr
+                                td.text-muted 最后修改
+                                td= stats.dbModified ? new Date(stats.dbModified).toLocaleString('zh-CN') : 'N/A'
+
+        //- 系统信息
+        .col-md-4
+            .card
+                .card-header
+                    h3.card-title
+                        i.bi.bi-pc-display.me-2
+                        | 系统信息
+                .card-body.p-0
+                    table.table.table-striped.mb-0
+                        tbody
+                            tr
+                                td.text-muted 运行平台
+                                td= stats.platform || 'N/A'
+                            tr
+                                td.text-muted Node.js
+                                td= stats.nodeVersion || 'N/A'
+                            tr
+                                td.text-muted 运行时间
+                                td= stats.uptime ? formatUptimeHelper(stats.uptime) : 'N/A'
+                            tr
+                                td.text-muted 系统负载
+                                td= stats.loadavg ? stats.loadavg.join(' / ') : 'N/A'
+
+    //- 数据表统计
+    .row.mb-1
+        .col-md-12
+            .card
+                .card-header
+                    h3.card-title
+                        i.bi.bi-grid-3x3-gap-fill.me-2
+                        | 数据表统计
+                .card-body.p-0
+                    if stats.tables
+                        table.table.table-striped.table-hover.mb-0
+                            thead
+                                tr
+                                    th 表名称
+                                    th.text-end 记录数
+                            tbody
+                                each count, tableName in stats.tables
+                                    tr
+                                        td
+                                            code= tableName
+                                        td.text-end
+                                            span.badge.text-bg-light= count
+                    else
+                        .p-3.text-muted 暂无数据
+
+    //- 数据备份
+    .row.mb-1
+        .col-md-12
+            .card
+                .card-header.d-flex.justify-content-between.align-items-center
+                    h3.card-title.mb-0
+                        i.bi.bi-cloud-arrow-up.me-2
+                        | 数据备份
+                    form(method="POST" action="/system/backup" style="display:inline")
+                        input(type="hidden" name="_csrf" value=csrfToken)
+                        button.btn.btn-primary.rounded-pill(type="submit")
+                            i.bi.bi-database-add.me-1
+                            | 立即备份
+                .card-body.p-0
+                    if stats.backups && stats.backups.length > 0
+                        table.table.table-striped.table-hover.mb-0
+                            thead
+                                tr
+                                    th 备份文件
+                                    th 大小
+                                    th 时间
+                                    th.text-end 操作
+                            tbody
+                                each backup in stats.backups
+                                    tr
+                                        td
+                                            code= backup.name
+                                        td= backup.sizeFormatted
+                                        td= new Date(backup.mtime).toLocaleString('zh-CN')
+                                        td.text-end
+                                            a.btn.btn-sm.btn-outline-secondary.me-1(
+                                                href="/system/backup/download/" + encodeURIComponent(backup.name)
+                                                title="下载"
+                                            )
+                                                i.bi.bi-download
+                                            form(
+                                                method="POST"
+                                                action="/system/backup/restore/" + encodeURIComponent(backup.name)
+                                                style="display:inline"
+                                                onsubmit="return confirm('确定要恢复此备份吗？当前数据将被覆盖。')"
+                                            )
+                                                input(type="hidden" name="_csrf" value=csrfToken)
+                                                button.btn.btn-sm.btn-outline-warning.me-1(type="submit" title="恢复")
+                                                    i.bi.bi-arrow-counterclockwise
+                                            form(
+                                                method="POST"
+                                                action="/system/backup/delete/" + encodeURIComponent(backup.name)
+                                                style="display:inline"
+                                                onsubmit="return confirm('确定要删除此备份吗？此操作不可撤销。')"
+                                            )
+                                                input(type="hidden" name="_csrf" value=csrfToken)
+                                                button.btn.btn-sm.btn-outline-danger(type="submit" title="删除")
+                                                    i.bi.bi-trash
+                    else
+                        .p-3.text-muted 暂无备份文件，点击"立即备份"创建第一个备份
+
+    //- 快速入口
+    .row.mb-4
+        .col-md-12
+            .card
+                .card-header
+                    h3.card-title
+                        i.bi.bi-speedometer2.me-2
+                        | 快速入口
+                .card-body
+                    .row.g-3
+                        .col-md-3
+                            a.btn.btn-outline-primary.w-100(href="/system/rbac")
+                                i.bi.bi-shield-lock.me-1
+                                | RBAC 权限管理
+                        .col-md-3
+                            a.btn.btn-outline-info.w-100(href="/system/menus")
+                                i.bi.bi-menu-button-wide.me-1
+                                | 菜单管理
+                        .col-md-3
+                            a.btn.btn-outline-success.w-100(href="/system/auditLog")
+                                i.bi.bi-journal-text.me-1
+                                | 审计日志
+                        .col-md-3
+                            a.btn.btn-outline-secondary.w-100(href="/users")
+                                i.bi.bi-people.me-1
+                                | 用户管理

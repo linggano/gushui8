@@ -1,0 +1,332 @@
+extends /layouts/adminlte4.pug
+
+block append styles
+    style.
+        .home-hero .hero-avatar { width: 72px; height: 72px; object-fit: cover; }
+        .home-hero .hero-meta { font-size: .875rem; }
+        .home-entry .small-box { min-height: 132px; }
+        .home-entry .small-box .inner h3 { font-size: 1.15rem; white-space: normal; }
+        .home-entry .small-box .small-box-icon { font-size: 2.5rem; opacity: .35; }
+
+block content
+    - const permissions = Array.isArray(userPermissions) ? userPermissions : []
+    - const roles = Array.isArray(userRoles) ? userRoles : []
+    - const can = (name) => permissions.includes(name)
+    - const hasRole = (name) => roles.includes(name)
+    - const isAdmin = hasRole('super_admin') || hasRole('system_admin') || hasRole('admin')
+    - const canSystem = isAdmin || can('admin_access')
+    - const canUserManage = isAdmin || can('user_manage')
+    - const displayName = (user && user.username) ? user.username : '用户'
+    - const hour = new Date().getHours()
+    - const greeting = hour < 6 ? '凌晨好' : (hour < 12 ? '上午好' : (hour < 14 ? '中午好' : (hour < 18 ? '下午好' : '晚上好')))
+    - const formatDateTime = (value) => { if (!value) return '-'; const d = new Date(value); return isNaN(d.getTime()) ? '-' : d.toLocaleString('zh-CN') }
+    - const roleLabel = isAdmin ? '管理员' : (roles.length ? '成员' : '访客')
+    - const roleTheme = isAdmin ? 'text-bg-danger' : (roles.length ? 'text-bg-primary' : 'text-bg-secondary')
+
+    .row
+        .col-12
+            .card.home-hero.mb-4
+                .card-body
+                    .d-flex.flex-wrap.align-items-center.gap-3
+                        img.hero-avatar.rounded-circle.shadow(src=userAvatar || '/npm/adminlte4/dist/assets/img/user2-160x160.jpg' alt='用户头像')
+                        .flex-grow-1
+                            h2.mb-1 #{greeting}，#{displayName}
+                                span.badge(class=roleTheme).ms-2= roleLabel
+                            .hero-meta.text-muted
+                                i.bi.bi-envelope.me-1
+                                = (user && user.email) ? user.email : '未设置邮箱'
+                            .mt-2
+                                if roles.length
+                                    each role in roles
+                                        span.badge.text-bg-primary.me-1.mb-1
+                                            i.bi.bi-person-badge.me-1
+                                            = role
+                                else
+                                    span.badge.text-bg-secondary 暂无角色
+                        .d-flex.flex-wrap.gap-2
+                            if user && user.id
+                                button.btn.btn-outline-secondary(type='button' data-bs-toggle='modal' data-bs-target='#preferenceModal')
+                                    i.bi.bi-gear-wide-connected.me-1
+                                    | 偏好设置
+                            a.btn.btn-outline-danger(href='/auth/logout')
+                                i.bi.bi-box-arrow-right.me-1
+                                | 退出登录
+
+    //- ===========================================================
+    //- 管理员视图
+    //- ===========================================================
+    if isAdmin
+        .row
+            .col-lg-3.col-md-6
+                .small-box.text-bg-primary
+                    .inner
+                        h3 用户管理
+                        p 查看与维护系统用户
+                    .small-box-icon
+                        i.bi.bi-people-fill
+                    a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/users')
+                        i.bi.bi-link-45deg.me-1
+                        | 进入
+
+            .col-lg-3.col-md-6
+                .small-box.text-bg-info
+                    .inner
+                        h3 通知中心
+                    .small-box-icon
+                        i.bi.bi-bell-fill
+                    a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/notifications/inbox')
+                        i.bi.bi-link-45deg.me-1
+                        | 进入
+
+            if canSystem
+                .col-lg-3.col-md-6
+                    .small-box.text-bg-success
+                        .inner
+                            h3 系统管理
+                            p 运行状态与数据备份
+                        .small-box-icon
+                            i.bi.bi-speedometer2
+                        a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/system/dashboard')
+                            i.bi.bi-link-45deg.me-1
+                            | 进入
+
+                .col-lg-3.col-md-6
+                    .small-box.text-bg-warning
+                        .inner
+                            h3 RBAC 权限
+                            p 角色、权限与路由配置
+                        .small-box-icon
+                            i.bi.bi-shield-lock-fill
+                        a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/system/rbac')
+                            i.bi.bi-link-45deg.me-1
+                            | 进入
+
+                .col-lg-3.col-md-6
+                    .small-box.text-bg-secondary
+                        .inner
+                            h3 菜单管理
+                            p 维护导航菜单结构
+                        .small-box-icon
+                            i.bi.bi-menu-button-wide-fill
+                        a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/system/menus')
+                            i.bi.bi-link-45deg.me-1
+                            | 进入
+
+                .col-lg-3.col-md-6
+                    .small-box.text-bg-danger
+                        .inner
+                            h3 审计日志
+                            p 追踪系统操作记录
+                        .small-box-icon
+                            i.bi.bi-journal-text
+                        a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/system/auditLog')
+                            i.bi.bi-link-45deg.me-1
+                            | 进入
+
+        .row.mt-1
+            .col-md-6
+                .card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-shield-check.me-2
+                            | 我的权限
+                        .card-tools
+                            span.badge.text-bg-light= permissions.length + ' 项'
+                    .card-body
+                        if permissions.length
+                            each permission in permissions
+                                span.badge.text-bg-primary.me-1.mb-1
+                                    i.bi.bi-key-fill.me-1
+                                    = permission
+                        else
+                            .text-muted 暂未分配权限
+
+            .col-md-6
+                .card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-lightbulb.me-2
+                            | 管理员快捷操作
+                    .card-body
+                        .row.g-2
+                            .col-6
+                                a.btn.btn-outline-primary.w-100(href='/users')
+                                    i.bi.bi-person-plus.me-1
+                                    | 用户管理
+                            .col-6
+                                a.btn.btn-outline-success.w-100(href='/system/rbac/roles')
+                                    i.bi.bi-person-badge.me-1
+                                    | 角色管理
+                            .col-6
+                                a.btn.btn-outline-warning.w-100(href='/system/rbac/permissions')
+                                    i.bi.bi-key.me-1
+                                    | 权限管理
+                            .col-6
+                                a.btn.btn-outline-danger.w-100(href='/system/auditLog')
+                                    i.bi.bi-journal-text.me-1
+                                    | 审计日志
+
+    //- ===========================================================
+    //- 普通用户视图
+    //- ===========================================================
+    else
+        .row
+            .col-lg-4.col-md-6
+                .small-box.text-bg-info
+                    .inner
+                        h3 通知中心
+                        p 查看系统通知与消息
+                    .small-box-icon
+                        i.bi.bi-bell-fill
+                    a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/notifications/inbox')
+                        i.bi.bi-link-45deg.me-1
+                        | 进入
+
+            .col-lg-4.col-md-6
+                .small-box.text-bg-primary
+                    .inner
+                        h3 个人中心
+                        p 管理您的账户信息
+                    .small-box-icon
+                        i.bi.bi-person-circle
+                    a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/my')
+                        i.bi.bi-link-45deg.me-1
+                        | 进入
+
+            .col-lg-4.col-md-6
+                .small-box.text-bg-success
+                    .inner
+                        h3 偏好设置
+                        p 自定义您的首页
+                    .small-box-icon
+                        i.bi.bi-gear-wide-connected
+                    a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='#' data-bs-toggle='modal' data-bs-target='#preferenceModal')
+                        i.bi.bi-link-45deg.me-1
+                        | 设置
+
+            if canUserManage && !isAdmin
+                .col-lg-4.col-md-6
+                    .small-box.text-bg-warning
+                        .inner
+                            h3 用户管理
+                            p 查看系统用户列表
+                        .small-box-icon
+                            i.bi.bi-people-fill
+                        a.small-box-footer.link-light.link-underline-opacity-0.link-underline-opacity-50-hover(href='/users')
+                            i.bi.bi-link-45deg.me-1
+                            | 进入
+
+        .row.mt-1
+            .col-md-6
+                .card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-shield-check.me-2
+                            | 我的权限
+                        .card-tools
+                            span.badge.text-bg-light= permissions.length + ' 项'
+                    .card-body
+                        if permissions.length
+                            each permission in permissions
+                                span.badge.text-bg-primary.me-1.mb-1
+                                    i.bi.bi-key-fill.me-1
+                                    = permission
+                        else
+                            .text-muted 暂未分配权限，页面将仅展示公共内容
+
+            .col-md-6
+                .card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-lightbulb.me-2
+                            | 快速入口
+                    .card-body
+                        .row.g-2
+                            .col-6
+                                a.btn.btn-outline-primary.w-100(href='/my')
+                                    i.bi.bi-person.me-1
+                                    | 个人信息
+                            .col-6
+                                a.btn.btn-outline-success.w-100(href='/my/settings')
+                                    i.bi.bi-sliders.me-1
+                                    | 偏好设置
+                            .col-6
+                                a.btn.btn-outline-warning.w-100(href='/notifications/inbox')
+                                    i.bi.bi-bell.me-1
+                                    | 消息通知
+                            .col-6
+                                a.btn.btn-outline-secondary.w-100(href='#help')
+                                    i.bi.bi-question-circle.me-1
+                                    | 使用帮助
+
+    //- ===========================================================
+    //- 公共：账号信息
+    //- ===========================================================
+    .row.mt-1
+        .col-12
+            .card
+                .card-header
+                    h3.card-title
+                        i.bi.bi-person-vcard.me-2
+                        | 账号信息
+                .card-body.p-0
+                    table.table.table-striped.mb-0
+                        tbody
+                            tr
+                                td.text-muted(style='width: 110px') 用户名
+                                td= displayName
+                            tr
+                                td.text-muted 邮箱
+                                td= (user && user.email) ? user.email : '-'
+                            tr
+                                td.text-muted 手机号
+                                td= (user && user.phone) ? user.phone : '-'
+                            tr
+                                td.text-muted 状态
+                                td
+                                    if user && user.status === 10
+                                        span.badge.text-bg-success 正常
+                                    else
+                                        span.badge.text-bg-warning 待激活
+                            tr
+                                td.text-muted 验证状态
+                                td
+                                    - var verifyMap = { verified: 'bg-success', pending: 'bg-warning text-dark', rejected: 'bg-danger', unverified: 'bg-secondary' }
+                                    - var verifyLabels = { verified: '已验证', pending: '待验证', rejected: '已拒绝', unverified: '未验证' }
+                                    - var vc = verifyMap[user.verificationStatus] || 'bg-secondary'
+                                    - var vl = verifyLabels[user.verificationStatus] || user.verificationStatus
+                                    span.badge(class=vc)= vl
+                            tr
+                                td.text-muted 最后登录
+                                td= formatDateTime(user && user.last_login_at)
+                            tr
+                                td.text-muted 注册时间
+                                td= formatDateTime(user && user.created_at)
+
+    //- ===========================================================
+    //- 公共：使用帮助
+    //- ===========================================================
+    .row.mt-1
+        .col-12
+            .card(id='help')
+                .card-header
+                    h3.card-title
+                        i.bi.bi-question-circle.me-2
+                        | 使用帮助
+                .card-body
+                    .row.g-3
+                        .col-md-4
+                            h6.fw-bold
+                                i.bi.bi-compass.me-1
+                                | 页面导航
+                            p.text-muted.mb-0 左侧菜单由管理员配置的菜单树与您的路由权限共同决定，仅展示您有权访问的条目。
+                        .col-md-4
+                            h6.fw-bold
+                                i.bi.bi-gear-wide-connected.me-1
+                                | 偏好设置
+                            p.text-muted.mb-0 可在页面顶部「偏好设置」中指定登录后的默认首页，留空则按部门、角色配置依次回退。
+                        .col-md-4
+                            h6.fw-bold
+                                i.bi.bi-shield-lock.me-1
+                                | 会话安全
+                            p.text-muted.mb-0 长时间无操作会自动锁屏，点击顶栏锁形图标也可立即锁定，解锁后返回原页面。

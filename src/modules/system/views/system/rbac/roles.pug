@@ -1,0 +1,259 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/table.pug
+include /mixins/modal.pug
+include /mixins/input_field.pug
+
+block append styles
+    link(rel="stylesheet", href="/npm/select2/dist/css/select2.min.css")
+    link(rel="stylesheet", href="/npm/select2-bootstrap-5-theme/dist/select2-bootstrap-5-theme.min.css")
+    style.
+        .select2-container {
+            width: 100% !important;
+        }
+        .select2-selection {
+            height: calc(2.25rem + 2px) !important;
+            padding: 0.375rem 0.75rem !important;
+            font-size: 1rem !important;
+            line-height: 1.5 !important;
+        }
+
+block content
+    - const roleRows = (roles && roles.rows) ? roles.rows : (Array.isArray(roles) ? roles : [])
+    .row
+        .col-sm-12 
+            +dataTable(
+                '角色管理',
+                [
+                    { title: '角色名称', field: 'name' },
+                    { title: '角色描述', field: 'description' },
+                    { title: '规则名', field: 'rule_name' },
+                    { title: '角色数据', field: 'data', format: 'json' }
+                ],
+                roleRows.map(function(item) {
+                    return {
+                        name: item.name,
+                        description: item.description || '-',
+                        rule_name: item.rule_name || '-',
+                        data: item.data ? JSON.stringify(item.data) : '-'
+                    };
+                }),
+                {
+                    create: '#',
+                    edit: '#',
+                    delete: '/system/rbac/roles/:name',
+                },
+                [
+                    { title: '角色权限分配', href: '/system/rbac/roles/:name/permissions', class: 'btn-info', icon: 'bi bi-shield-check' },
+                ],
+                pagination,
+                { searchable: true }
+            )
+
+    +modal('roleModal', { title: '新增角色', size: 'lg', icon: 'bi-person-square' })
+        input#type(type="hidden" name="type" value="1")
+        .row
+            .col-md-12
+                +formField('name', { label: '角色名', required: true, placeholder: '请输入角色名，如：admin', pattern: '[a-zA-Z0-9_.\\-]{2,50}' })
+            .col-md-6
+                +formField('description', { label: '角色描述', placeholder: '请输入角色描述，如：系统管理员' })
+            .col-md-6
+                .form-group.mb-3
+                    label.form-label(for="rule_name")
+                        i.bi.bi-rulers.me-2
+                        | 规则名
+                    select.form-select#rule_name(name="rule_name" style="width: 100%;")
+                        option(value="") 无规则
+                        each rule in rules || []
+                            option(value=rule.name)= rule.name
+            .col-md-12
+                .form-group.mb-3
+                    label.form-label(for="data")
+                        i.bi.bi-code.me-2
+                        | 角色数据 (JSON格式)
+                    textarea.form-control#data(name="data" rows="3" placeholder='{"key": "value"}')
+                    small.form-text.text-muted 可选字段，用于存储角色相关的额外数据
+
+prepend scripts
+    script(src="/npm/jquery/dist/jquery.min.js", nonce=nonce)
+    
+append scripts
+    script(src="/npm/select2/dist/js/select2.min.js", nonce=nonce)
+    script(nonce=nonce).
+        $(function() {
+            var csrfToken = $('meta[name="csrf-token"]').attr('content');
+            var modalEl = document.getElementById('roleModal');
+            var modal = new bootstrap.Modal(modalEl);
+            var $modal = $('#roleModal');
+            var $submitBtn = $('#roleModalSubmitBtn');
+            var $deleteBtn = $('#deleteBtn');
+
+            // Toast 提示函数
+            function showToast(message, type) {
+                type = type || 'info';
+                var $toast = $('<div class="toast align-items-center text-bg-' + type + ' border-0 position-fixed" ' +
+                    'style="top: 20px; right: 20px; z-index: 9999;">' +
+                    '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+                    '</div></div>');
+                $('body').append($toast);
+                var toast = new bootstrap.Toast($toast[0], { delay: 3000 });
+                toast.show();
+                $toast.on('hidden.bs.toast', function() { $(this).remove(); });
+            }
+
+            // 初始化 select2
+            $('#rule_name').select2({
+                theme: 'bootstrap-5',
+                placeholder: '请选择规则名',
+                allowClear: true,
+                width: '100%'
+            });
+
+            // 新增按钮点击
+            $(document).on('click', '#createBtn', function(e) {
+                e.preventDefault();
+                openCreateModal();
+            });
+
+            // 打开新增模态框
+            function openCreateModal() {
+                $('#roleModalLabel').text('新增角色');
+                $modal.data('action', '/system/rbac/roles');
+                $('#name').val('');
+                $('#description').val('');
+                $('#rule_name').val('').trigger('change');
+                $('#data').val('');
+                $('#type').val('1');
+                $deleteBtn.hide();
+                $submitBtn.html('<i class="bi bi-save me-1"></i>保存');
+                // 启用名字段
+                $('#name').prop('disabled', false);
+                modal.show();
+            }
+
+            // 编辑按钮点击
+            $(document).on('click', '.btn-warning[title="编辑"], .btn-warning[title="编辑"] *', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this).closest('.btn-warning');
+                var rowDataAttr = $btn.attr('data-row-data');
+                var rowData = rowDataAttr ? JSON.parse(decodeURIComponent(rowDataAttr)) : null;
+                if (!rowData) {
+                    var $tr = $btn.closest('tr');
+                    rowData = {
+                        name: $tr.find('td:eq(1)').text().trim(),
+                        description: $tr.find('td:eq(2)').text().trim(),
+                        rule_name: $tr.find('td:eq(3)').text().trim(),
+                        data: $tr.find('td:eq(4)').text().trim()
+                    };
+                }
+
+                openEditModal(rowData);
+            });
+
+            // 打开编辑模态框
+            function openEditModal(rowData) {
+                $('#roleModalLabel').text('修改角色');
+                $modal.data('action', '/system/rbac/roles/' + encodeURIComponent(rowData.name));
+                $('#name').val(rowData.name || '');
+                $('#description').val(rowData.description !== '-' ? (rowData.description || '') : '');
+                $('#rule_name').val(rowData.rule_name !== '-' ? (rowData.rule_name || '') : '').trigger('change');
+                $('#data').val(rowData.data !== '-' ? (rowData.data || '') : '');
+                $deleteBtn.show();
+                $submitBtn.html('<i class="bi bi-save me-1"></i>更新');
+                // 禁用名字段（编辑时不允许修改名称）
+                $('#name').prop('disabled', true);
+                modal.show();
+            }
+
+            // 提交按钮点击
+            $submitBtn.on('click', function() {
+                var url = $modal.data('action');
+                var isUpdate = url.indexOf('/roles/') !== -1;
+                var formData = {
+                    description: $('#description').val(),
+                    rule_name: $('#rule_name').val(),
+                    data: null
+                };
+                
+                // 安全解析 JSON 数据
+                var dataVal = $('#data').val();
+                if (dataVal) {
+                    try {
+                        formData.data = JSON.parse(dataVal);
+                    } catch (e) {
+                        showToast('角色数据格式错误，请输入有效的JSON格式', 'warning');
+                        return;
+                    }
+                }
+                
+                if (!isUpdate) {
+                    formData.name = $('#name').val();
+                }
+                $.ajax({
+                    url: url,
+                    type: isUpdate ? 'PUT' : 'POST',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    data: JSON.stringify(formData),
+                    success: function(response) {
+                        var success = response && (response.success === true || response.success === 'true');
+                        if (success) {
+                            showToast('操作成功', 'success');
+                            modal.hide();
+                            setTimeout(function() {
+                                location.reload();
+                            }, 500);
+                        } else {
+                            showToast(response.message || '操作失败！', 'danger');
+                        }
+                    },
+                    error: function(xhr) {
+                        var message = '请求失败，请稍后再试！';
+                        if (xhr.responseJSON) {
+                            if (xhr.responseJSON.message) {
+                                message = xhr.responseJSON.message;
+                            } else if (xhr.responseJSON.errors && xhr.responseJSON.errors.length > 0) {
+                                message = xhr.responseJSON.errors.map(function(e) { return e.msg; }).join('；');
+                            }
+                        }
+                        showToast(message, 'danger');
+                    }
+                });
+            });
+
+            // 删除按钮点击
+            $(document).on('click', '.btn-delete', function(e) {
+                e.preventDefault();
+                var url = $(this).data('delete-href');
+                if (confirm('确定要删除这个角色吗？')) {
+                    $.ajax({
+                        url: url,
+                        type: 'DELETE',
+                        data: { _csrf: csrfToken },
+                        success: function(response) {
+                            if (response.success) {
+                                showToast('角色删除成功', 'success');
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 500);
+                            } else {
+                                showToast(response.message || '角色删除失败！', 'danger');
+                            }
+                        },
+                        error: function() {
+                            showToast('请求失败，请稍后再试！', 'danger');
+                        }
+                    });
+                }
+            });
+
+            // 当模态框关闭时重置
+            $modal.on('hidden.bs.modal', function() {
+                $('#name').prop('disabled', false);
+                $deleteBtn.hide();
+            });
+        });

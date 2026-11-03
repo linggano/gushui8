@@ -1,0 +1,108 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/detail.pug
+
+block content
+    -
+        var statusMap = { 10: { text: '启用', class: 'bg-success' }, 0: { text: '禁用', class: 'bg-danger' } };
+        var statusInfo = statusMap[user.status] || { text: user.status, class: 'bg-secondary' };
+        var verifyMap = { verified: { text: '已验证', class: 'bg-success' }, pending: { text: '待验证', class: 'bg-warning text-dark' }, rejected: { text: '已拒绝', class: 'bg-danger' }, unverified: { text: '未验证', class: 'bg-secondary' } };
+        var verifyInfo = verifyMap[user.verificationStatus] || { text: user.verificationStatus, class: 'bg-secondary' };
+        var backUrl = '/users';
+        var userId = user.id;
+
+        var sections = [
+            {
+                title: '基本信息',
+                columns: [
+                    {
+                        fields: [
+                            { label: '用户名', value: user.username },
+                            { label: '邮箱', value: user.email },
+                            { label: '手机号', value: user.phone || '—' },
+                            { label: '状态', value: statusInfo.text, type: 'badge', class: statusInfo.class },
+                            { label: '验证状态', value: verifyInfo.text, type: 'badge', class: verifyInfo.class }
+                        ]
+                    },
+                    {
+                        fields: [
+                            { label: '用户ID', value: user.id, type: 'code' },
+                            { label: '注册时间', value: user.created_at ? new Date(user.created_at).toLocaleString('zh-CN') : '—', type: 'date' },
+                            { label: '最后更新', value: user.updated_at ? new Date(user.updated_at).toLocaleString('zh-CN') : '—', type: 'date' },
+                            { label: '默认首页', value: user.home_route || '—' }
+                        ]
+                    }
+                ]
+            },
+            {
+                title: '安全信息',
+                columns: [
+                    {
+                        fields: [
+                            { label: '锁定状态', value: user.is_locked ? '已锁定' : '正常', type: 'badge', class: user.is_locked ? 'bg-danger' : 'bg-success' },
+                            { label: '锁定截止', value: user.locked_until ? new Date(user.locked_until).toLocaleString('zh-CN') : '—', type: 'date' }
+                        ]
+                    },
+                    {
+                        fields: [
+                            { label: '登录尝试', value: String(user.login_attempts || 0) },
+                            { label: '登录次数', value: String(user.login_count || 0) },
+                            { label: '最后登录', value: user.last_login_at ? new Date(user.last_login_at).toLocaleString('zh-CN') : '—', type: 'date' },
+                            { label: '最后登录IP', value: user.last_login_ip || '—' }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+    +detailCard('用户详情 — ' + user.username, backUrl, sections)
+
+    .row.mt-3
+        .col-md-12.mx-auto
+            .card
+                .card-header
+                    h3.card-title 验证状态
+                .card-body
+                    - var statuses = ['unverified', 'pending', 'verified', 'rejected']
+                    - var statusLabels = { unverified: '未验证', pending: '待验证', verified: '已验证', rejected: '已拒绝' }
+                    - var currentStatus = user.verificationStatus || 'unverified'
+                    .d-flex.flex-wrap.gap-2
+                        each s in statuses
+                            if s !== currentStatus
+                                - var btnClass = s === 'verified' ? 'btn-outline-success' : (s === 'rejected' ? 'btn-outline-danger' : (s === 'pending' ? 'btn-outline-warning' : 'btn-outline-secondary'))
+                                form(method='POST' action='/users/' + userId + '/verify' class='d-inline')
+                                    input(type='hidden' name='_csrf' value=csrfToken)
+                                    input(type='hidden' name='verificationStatus' value=s)
+                                    button.btn(class=btnClass type='submit' onclick="return confirm('确定将验证状态改为「" + statusLabels[s] + "」吗？')")
+                                        i.bi.bi-check-circle.me-1
+                                        = '改为「' + statusLabels[s] + '」'
+                            else
+                                span.btn.btn-secondary.disabled
+                                    i.bi.bi-dot.me-1
+                                    = '当前：' + statusLabels[s]
+
+    .row.mt-3
+        .col-md-12.mx-auto
+            .card
+                .card-header
+                    h3.card-title 操作
+                .card-body
+                    .d-flex.gap-2
+                        if user.is_locked
+                            form(method='POST' action='/users/' + userId + '/unlock' class='d-inline')
+                                input(type='hidden' name='_csrf' value=csrfToken)
+                                button.btn.btn-outline-warning(type='submit' onclick="return confirm('确定要解锁该用户吗？')")
+                                    i.bi.bi-unlock-fill.me-1
+                                    | 解锁账户
+                        else
+                            form(method='POST' action='/users/' + userId + '/lock' class='d-inline')
+                                input(type='hidden' name='_csrf' value=csrfToken)
+                                button.btn.btn-outline-warning(type='submit' onclick="return confirm('确定要锁定该用户吗？')")
+                                    i.bi.bi-lock-fill.me-1
+                                    | 锁定账户
+
+                        form(method='POST' action='/users/' + userId + '/delete' class='d-inline')
+                            input(type='hidden' name='_csrf' value=csrfToken)
+                            button.btn.btn-outline-danger(type='submit' onclick="return confirm('确定要删除该用户吗？此操作不可撤销。')")
+                                i.bi.bi-trash-fill.me-1
+                                | 删除用户

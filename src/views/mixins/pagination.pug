@@ -1,0 +1,71 @@
+//- src/shared/views/mixins/pagination.pug
+//- AdminLTE4 / Bootstrap 5 风格分页混入
+//-
+//- 参数:
+//-   pagination  - { page, totalPages, total, limit }  分页元对象（来自 repository）
+//-   baseUrl     - 例如 '/users'
+//-   query       - 当前 query 对象（用于保留 search/status 等额外参数）
+//-   options     - 可选配置: { size: 'sm'|'' , spread: 1 (当前页左右显示多少个页码) }
+//-
+//- 渲染后的结构:
+//-   div.d-flex.justify-content-between.align-items-center
+//-     span 左侧: 共 N 条，当前 X-Y 条
+//-     ul.pagination.pagination-sm 右侧: 页码 + 上一页/下一页
+
+mixin pagination(pagination, baseUrl, query, options = {})
+  - page = pagination.page || 1
+  - totalPages = pagination.totalPages || 1
+  - total = pagination.total || 0
+  - limit = pagination.limit || 10
+  - sizeClass = options.size === false ? '' : 'pagination-sm'
+  - spread = options.spread || 1
+  -
+  - buildUrl = (p) => {
+  -   const q = Object.assign({}, query || {}, { page: p })
+  -   const pairs = Object.keys(q).filter(k => q[k] !== undefined && q[k] !== '' && k !== 'page').map(k => `${encodeURIComponent(k)}=${encodeURIComponent(q[k])}`)
+  -   pairs.push(`page=${p}`)
+  -   return baseUrl + '?' + pairs.join('&')
+  - }
+  -
+  - const start = Math.max(1, page - spread)
+  - const end = Math.min(totalPages, page + spread)
+  - const pages = []
+  - for (let i = start; i <= end; i++) pages.push(i)
+
+  div.d-flex.justify-content-between.align-items-center
+    span.text-muted.small
+      | 共 #{total} 条，当前
+      strong #{(page - 1) * limit + 1}
+      | -
+      strong #{Math.min(page * limit, total)}
+      | 条
+
+    nav(aria-label='Page navigation')
+      ul(class='pagination ' + sizeClass + ' m-0')
+        li.page-item(class=page <= 1 ? 'disabled' : '')
+          a.page-link(href=page > 1 ? buildUrl(page - 1) : '#', aria-label='Previous')
+            span(aria-hidden='true')
+              i.bi.bi-chevron-left
+
+        if start > 1
+          li.page-item
+            a.page-link(href=buildUrl(1)) 1
+          if start > 2
+            li.page-item.disabled
+              span.page-link …
+
+        for p in pages
+          li.page-item(class=Number(p) === Number(page) ? 'active' : '')
+            a.page-link(href=buildUrl(p))= p
+
+        if end < totalPages
+          if end < totalPages - 1
+            li.page-item.disabled
+              span.page-link …
+          li.page-item
+            a.page-link(href=buildUrl(totalPages))= totalPages
+
+        li.page-item(class=page >= totalPages ? 'disabled' : '')
+          a.page-link(href=page < totalPages ? buildUrl(page + 1) : '#', aria-label='Next')
+            span(aria-hidden='true')
+              i.bi.bi-chevron-right

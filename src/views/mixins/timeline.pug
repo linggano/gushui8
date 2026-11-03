@@ -1,0 +1,122 @@
+//- 时间线标签 mixin (显示日期分组)
+//- 用法: +timelineLabel(text, colorClass='primary')
+mixin timelineLabel(text, colorClass='primary')
+    .time-label
+        span(class='text-bg-' + colorClass)= text
+
+//- 时间线条目 mixin
+//- 用法: +timelineItem(icon, iconColorClass='primary', time='', headerText='', headerLink='', hasBorder=true)
+mixin timelineItem(icon, iconColorClass='primary', time='', headerText='', headerLink='', hasBorder=true)
+    - var headerClass = hasBorder ? 'timeline-header' : 'timeline-header no-border'
+    i.timeline-icon(class='bi ' + icon + ' text-bg-' + iconColorClass)
+    .timeline-item
+        if time
+            span.time
+                i.bi.bi-clock-fill
+                |  #{time}
+        if headerText
+            if headerLink
+                h3(class=headerClass)
+                    a(href=headerLink)= headerText
+            else
+                h3(class=headerText)= headerText
+
+        block
+
+//- 时间线容器 mixin
+//- 用法: +timeline()
+mixin timeline()
+    .timeline
+        block
+
+//- 教育经历时间线条目 mixin
+//- 用法: +educationTimelineItem(education, showActions=false)
+mixin educationTimelineItem(education, showActions=false)
+    - var startDate = education.start_date ? new Date(education.start_date) : null
+    - var endDate = education.end_date ? new Date(education.end_date) : null
+    - var isValidStartDate = startDate && startDate.toString() !== 'Invalid Date'
+    - var isValidEndDate = endDate && endDate.toString() !== 'Invalid Date'
+    - var startYear = isValidStartDate ? startDate.getFullYear() : '?'
+    - var startMonth = isValidStartDate ? (startDate.getMonth() + 1) : ''
+    - var endYear = isValidEndDate ? endDate.getFullYear() : '至今'
+    - var endMonth = isValidEndDate ? (endDate.getMonth() + 1) : ''
+    - var startText = (startYear !== '?' && startMonth) ? startYear + '年' + startMonth + '月' : startYear
+    - var endText = (endYear !== '至今' && endMonth) ? endYear + '年' + endMonth + '月' : endYear
+    - var timeRange = startText + ' - ' + endText
+    - var degreeText = education.degree === 'skills' ? '专技' : (education.degree === 'high_school' ? '高中' : (education.degree === 'college' ? '专科' : (education.degree === 'bachelor' ? '本科' : (education.degree === 'master' ? '硕士' : (education.degree === 'doctor' ? '博士' : '-')))))
+    
+    - var schoolName = education.school || '未知学校'
+    
+    div
+        i.timeline-icon(class='bi bi-mortarboard-fill text-bg-primary')
+        .timeline-item
+            span.time= timeRange
+            h3.timeline-header(style='font-size: 16px;font-weight: bold;')
+                = schoolName
+                if education.degree
+                    span.text-muted.ms-2= '[' + degreeText + ']'
+            .timeline-body
+                if education.major
+                    p.mb-1
+                        strong 专业：
+                        = education.major
+                if education.description
+                    p.mb-1
+                        strong 主修课程/描述：
+                        = education.description
+            if showActions
+                .timeline-footer
+                    a.btn.btn-sm.btn-primary(href="/profile/educations/update/" + user.id + "/" + education.id title="编辑")
+                        i.bi.bi-pencil-fill
+                        |  编辑
+                    |  
+                    button.btn.btn-sm.btn-danger(type='button' onclick="deleteEducation(" + education.id + ")" title="删除")
+                        i.bi.bi-trash-fill
+                        |  删除
+
+//- 工作经历时间线条目 mixin
+//- 用法: +workExperienceTimelineItem(experience, showActions=false)
+mixin workExperienceTimelineItem(experience, showActions=false)
+    - var startDate = experience.start_date ? new Date(experience.start_date) : null
+    - var endDate = experience.end_date ? new Date(experience.end_date) : null
+    - var isValidStartDate = startDate && startDate.toString() !== 'Invalid Date'
+    - var isValidEndDate = endDate && endDate.toString() !== 'Invalid Date'
+    - var startYear = isValidStartDate ? startDate.getFullYear() : '?'
+    - var startMonth = isValidStartDate ? (startDate.getMonth() + 1) : ''
+    - var endYear = isValidEndDate ? endDate.getFullYear() : '至今'
+    - var endMonth = isValidEndDate ? (endDate.getMonth() + 1) : ''
+    - var startText = (startYear !== '?' && startMonth) ? startYear + '年' + startMonth + '月' : startYear
+    - var endText = (endYear !== '至今' && endMonth) ? endYear + '年' + endMonth + '月' : endYear
+    - var timeRange = startText + ' - ' + endText
+    
+    - var companyName = experience.company || '未知公司'
+    - var company_address = experience.company_address || ''
+    - var positionText = experience.position || ''
+    - var salaryText = experience.salary || ''
+    
+    div
+        i.timeline-icon(class='bi bi-briefcase-fill text-bg-success')
+        .timeline-item
+            span.time= timeRange
+            h3.timeline-header(style='font-size: 16px;font-weight: bold;')
+                = companyName
+                if positionText
+                    span.text-muted.ms-2= '- ' + positionText
+            if experience.description
+                .timeline-body
+                    p.mb-1
+                        strong 工作描述/职责：
+                        = experience.description
+                        if salaryText
+                            p.mb-1
+                                strong 薪资：
+                                = salaryText
+            if showActions
+                .timeline-footer
+                    a.btn.btn-sm.btn-primary(href="/profile/work-experiences/update/" + user.id + "/" + experience.id title="编辑")
+                        i.bi.bi-pencil-fill
+                        |  编辑
+                    |  
+                    button.btn.btn-sm.btn-danger(type='button' onclick="deleteWorkExperience(" + experience.id + ")" title="删除")
+                        i.bi.bi-trash-fill
+                        |  删除

@@ -2,9 +2,41 @@ const fs = require('fs');
 const https = require('https');
 
 const app = require('./app');
-const { sequelize } = require('./src/shared/database/models');
+const { sequelize } = require('./src/shared/database');
 const { config } = require('./src/config');
 
+async function ensureColumns(table, expectedColumns) {
+    try {
+        const columns = await sequelize.getQueryInterface().describeTable(table);
+        const missingColumns = expectedColumns.filter(col => !(col.name in columns));
+        if (missingColumns.length > 0) {
+            for (const col of missingColumns) {
+                console.log(`  Adding column \`${table}\`.\`${col.name}\` (${col.type})`);
+                await sequelize.getQueryInterface().addColumn(table, col.name, col);
+            }
+        }
+    } catch (err) {
+        console.error(`  检查表 ${table} 时出错:`, err.message);
+    }
+}
+
+async function runMigrations() {
+    try {
+        const { runMigrations: executeMigrations } = require('./migrations');
+        await executeMigrations(sequelize);
+    } catch (err) {
+        console.error('❌ 数据库迁移失败:', err.message);
+    }
+}
+
+async function runSeeders() {
+    try {
+        const { runSeeders: executeSeeders } = require('./seeders');
+        await executeSeeders();
+    } catch (err) {
+        console.error('❌ 种子数据执行失败:', err.message);
+    }
+}
 
 async function bootstrap() {
     try {
@@ -37,11 +69,35 @@ async function bootstrap() {
         const updatedTables = await sequelize.getQueryInterface().showAllTables();
         console.log(`✅ 表同步完成，现有数据表: ${updatedTables.join(', ')}`);
         } else {
-        console.log('✅ 数据表已存在，跳过同步');
+        console.log('✅ 数据表已存在，检查并补齐缺失列...');
         }
+
+        // 补齐各 RBAC 表的缺失列（使用 ALTER TABLE ADD COLUMN，避免 SQLite 备份表重建问题）
+        console.log(' 检查 RBAC 表列结构...');
+        await ensureColumns('rbac_items', [
+            { name: 'description', type: sequelize.Sequelize.TEXT },
+            { name: 'rule_name', type: sequelize.Sequelize.STRING(64) },
+            { name: 'data', type: sequelize.Sequelize.BLOB },
+            { name: 'created_at', type: sequelize.Sequelize.INTEGER },
+            { name: 'updated_at', type: sequelize.Sequelize.INTEGER },
+        ]);
+        await ensureColumns('rbac_rule', [
+            { name: 'description', type: sequelize.Sequelize.STRING(255) },
+            { name: 'data', type: sequelize.Sequelize.BLOB },
+            { name: 'created_at', type: sequelize.Sequelize.INTEGER },
+            { name: 'updated_at', type: sequelize.Sequelize.INTEGER },
+        ]);
+        await ensureColumns('rbac_assignment', [
+            { name: 'created_at', type: sequelize.Sequelize.INTEGER },
+        ]);
+        await ensureColumns('rbac_item_child', [
+            { name: 'parent', type: sequelize.Sequelize.STRING(64) },
+            { name: 'child', type: sequelize.Sequelize.STRING(64) },
+        ]);
+        console.log('✅ 列结构检查完成');
         
-        await addMissingColumns();
-        await initializeRbac();
+        await runMigrations();
+        await runSeeders();
     } catch (error) {
         console.error('❌ 数据表同步失败:', error.message);
         console.error('详细错误:', error);
@@ -71,4 +127,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-

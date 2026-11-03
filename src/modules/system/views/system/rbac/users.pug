@@ -1,0 +1,405 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/table.pug
+include /mixins/modal.pug
+
+block append styles
+    link(rel="stylesheet", href="/npm/select2/dist/css/select2.min.css")
+    link(rel="stylesheet", href="/npm/select2-bootstrap-5-theme/dist/select2-bootstrap-5-theme.min.css")
+    style.
+        .select2-container {
+            width: 100% !important;
+        }
+
+block content
+    .row
+        .col-sm-12 
+            +dataTable(
+                '用户管理',
+                [
+                    { title: '用户名', field: 'username', width: '150px' },
+                    { title: '姓名', field: 'realName', width: '120px' },
+                    { title: '邮箱', field: 'email', width: '250px' },
+                    { title: '部门', field: 'department', width: '180px' },
+                    { title: '职位', field: 'position', width: '180px' },
+                    { title: '状态', field: 'status', format: 'status', width: '120px' },
+                ],
+                users.map(function(user) {
+                    return {
+                        id: user.id,
+                        username: user.username,
+                        realName: user.realName,
+                        email: user.email,
+                        department: user.department,
+                        position: user.position,
+                        status: user.status,
+                    };
+                }),
+                {
+                    show: '/system/rbac/users/:id',
+                },
+                [
+                    { title: '分配角色', href: 'javascript:void(0)', class: 'btn-primary', icon: 'bi bi-person-gear' },
+                    { title: '查看权限', href: 'javascript:void(0)', class: 'btn-success', icon: 'bi bi-shield-check' },
+                ],
+                pagination
+            )
+
+    //- 用户详情模态框
+    +modal('userDetailModal', { title: '用户详情', size: 'lg', icon: 'bi-person', showClose: true })
+        #userDetailContent
+            .text-center.text-muted.py-5
+                i.bi.bi-hourglass-split.display-4
+                p 加载中...
+
+    //- 分配角色模态框
+    +modal('assignRoleModal', { title: '分配角色', size: 'lg', icon: 'bi-person-gear', showClose: true })
+        #assignRoleContent
+            .text-center.text-muted.py-5
+                i.bi.bi-hourglass-split.display-4
+                p 加载中...
+
+    //- 查看权限模态框
+    +modal('viewPermissionsModal', { title: '用户权限', size: 'lg', icon: 'bi-shield-check', showClose: true })
+        #permissionsContent
+            .text-center.text-muted.py-5
+                i.bi.bi-hourglass-split.display-4
+                p 加载中...
+
+block prepend scripts
+    script(src="/npm/jquery/dist/jquery.min.js", nonce=nonce)
+    script(src="/npm/select2/dist/js/select2.min.js", nonce=nonce)
+
+block append scripts
+    script(nonce=nonce).
+        $(function() {
+            var csrfToken = $('meta[name="csrf-token"]').attr('content');
+            var userDetailModal = new bootstrap.Modal(document.getElementById('userDetailModal'));
+            var assignRoleModal = new bootstrap.Modal(document.getElementById('assignRoleModal'));
+            var viewPermissionsModal = new bootstrap.Modal(document.getElementById('viewPermissionsModal'));
+            var currentUserId = '';
+            var currentModal = null;  // 'detail' | 'assign' | 'permissions'
+
+            // ========== 工具函数 ==========
+            function showToast(message, type) {
+                type = type || 'info';
+                // 简单实现，可替换为 toastr / SweetAlert
+                var $toast = $('<div class="toast align-items-center text-bg-' + type + ' border-0 position-fixed" ' +
+                    'style="top: 20px; right: 20px; z-index: 9999;">' +
+                    '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+                    '</div></div>');
+                $('body').append($toast);
+                var toast = new bootstrap.Toast($toast[0], { delay: 2000 });
+                toast.show();
+                $toast.on('hidden.bs.toast', function() { $(this).remove(); });
+            }
+
+            function refreshUserDetailSilently(userId) {
+                // 静默刷新详情（不显示 loading）
+                $.ajax({
+                    url: '/system/rbac/api/users/' + userId,
+                    type: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        var user = response.data || response;
+                        renderUserDetail(user);
+                    }
+                });
+            }
+
+            // ========== 打开详情 ==========
+            $(document).on('click', '.btn-info[title="查看"], .btn-info[title="查看"] *', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this).closest('.btn-info');
+                var rowData = $btn.attr('data-row-data');
+                var userId;
+                if (rowData) {
+                    userId = JSON.parse(decodeURIComponent(rowData)).id;
+                } else {
+                    var href = $btn.attr('href');
+                    var parts = href.split('/');
+                    userId = parts[parts.length - 1];
+                }
+                openUserDetailModal(userId);
+            });
+
+            function openUserDetailModal(userId) {
+                currentUserId = userId;
+                currentModal = 'detail';
+                $('#userDetailModalLabel').html('<i class="bi bi-person me-2"></i>用户详情');
+                $('#userDetailContent').html('<div class="text-center text-muted py-5"><i class="bi bi-hourglass-split display-4"></i><p>加载中...</p></div>');
+                userDetailModal.show();
+
+                $.ajax({
+                    url: '/system/rbac/api/users/' + userId,
+                    type: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        var user = response.data || response;
+                        renderUserDetail(user);
+                    },
+                    error: function(xhr) {
+                        $('#userDetailContent').html('<div class="alert alert-danger">加载失败：' + (xhr.responseJSON?.message || '请稍后重试') + '</div>');
+                    }
+                });
+            }
+
+            function renderUserDetail(user) {
+                var statusText = user.status == 10 ? '正常' : (user.status == 0 ? '待激活' : '禁用');
+                var statusClass = user.status == 10 ? 'bg-success' : (user.status == 0 ? 'bg-warning' : 'bg-secondary');
+
+                var html = '<div class="row">' +
+                    '<div class="col-md-6"><table class="table table-sm table-borderless">' +
+                    '<tr><th style="width: 100px">用户名</th><td>' + (user.username || '—') + '</td></tr>' +
+                    '<tr><th>姓名</th><td>' + (user.realName || '—') + '</td></tr>' +
+                    '<tr><th>邮箱</th><td>' + (user.email || '—') + '</td></tr>' +
+                    '<tr><th>手机</th><td>' + (user.phone || '—') + '</td></tr>' +
+                    '</table></div>' +
+                    '<div class="col-md-6"><table class="table table-sm table-borderless">' +
+                    '<tr><th style="width: 100px">部门</th><td>' + (user.department || '—') + '</td></tr>' +
+                    '<tr><th>职位</th><td>' + (user.position || '—') + '</td></tr>' +
+                    '<tr><th>状态</th><td><span class="badge ' + statusClass + '">' + statusText + '</span></td></tr>' +
+                    '</table></div></div>' +
+                    '<div class="d-flex gap-2 mt-3">' +
+                    '<button class="btn btn-primary btn-sm btn-open-assign-role" data-user-id="' + user.id + '"><i class="bi bi-person-gear me-1"></i>分配角色</button>' +
+                    '<button class="btn btn-info btn-sm btn-open-view-permissions" data-user-id="' + user.id + '"><i class="bi bi-shield-check me-1"></i>查看权限</button>' +
+                    '</div>';
+
+                if (user.roles && user.roles.length > 0) {
+                    html += '<h6 class="mt-4 mb-2">已分配角色</h6><table class="table table-sm table-striped"><thead><tr><th>角色名称</th><th>描述</th><th style="width:80px">操作</th></tr></thead><tbody>';
+                    user.roles.forEach(function(role) {
+                        html += '<tr><td>' + role.name + '</td><td>' + (role.description || '—') + '</td>' +
+                            '<td><button class="btn btn-sm btn-danger btn-revoke-role" data-user-id="' + user.id + '" data-role-name="' + role.name + '"><i class="bi bi-x-circle"></i></button></td></tr>';
+                    });
+                    html += '</tbody></table>';
+                }
+
+                $('#userDetailContent').html(html);
+            }
+
+            // ========== 从详情打开分配角色 ==========
+            $(document).on('click', '.btn-open-assign-role', function() {
+                var userId = $(this).data('user-id');
+                openAssignRoleModal(userId, 'detail');  // 记住来自详情
+            });
+
+            // ========== 表格行"分配角色"按钮 ==========
+            $(document).on('click', '.btn-primary[title="分配角色"], .btn-primary[title="分配角色"] *', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this).closest('.btn-primary');
+                var rowData = $btn.attr('data-row-data');
+                var userId;
+                if (rowData) {
+                    userId = JSON.parse(decodeURIComponent(rowData)).id;
+                } else {
+                    var href = $btn.attr('href');
+                    var parts = href.split('/');
+                    userId = parts[parts.length - 2];
+                }
+                openAssignRoleModal(userId, 'table');
+            });
+
+            window.openAssignRoleModal = function(userId, from) {
+                currentUserId = userId;
+                currentModal = 'assign';
+                // 记录来源，用于提交后决定回到哪里
+                $('#assignRoleModal').data('from', from || 'table');
+                
+                $('#assignRoleModalLabel').html('<i class="bi bi-person-gear me-2"></i>分配角色');
+                $('#assignRoleContent').html('<div class="text-center text-muted py-5"><i class="bi bi-hourglass-split display-4"></i><p>加载中...</p></div>');
+                assignRoleModal.show();
+
+                $.ajax({
+                    url: '/system/rbac/api/users/' + userId + '/roles',
+                    type: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        renderAssignRoleModal(response.data || response);
+                    },
+                    error: function(xhr) {
+                        $('#assignRoleContent').html('<div class="alert alert-danger">加载失败</div>');
+                    }
+                });
+            };
+
+            function renderAssignRoleModal(data) {
+                var user = data.user;
+                var roles = data.roles || [];
+                var allRoles = data.allRoles || [];
+
+                var html = '<div class="mb-3"><strong>用户：</strong>' + (user.realName || user.username) + ' (' + (user.email || '') + ')</div>';
+
+                html += '<h6>已分配角色</h6>';
+                if (roles.length > 0) {
+                    html += '<table class="table table-sm table-striped mb-3"><thead><tr><th>角色名称</th><th>描述</th><th style="width:80px">操作</th></tr></thead><tbody>';
+                    roles.forEach(function(role) {
+                        html += '<tr><td>' + role.name + '</td><td>' + (role.description || '—') + '</td>' +
+                            '<td><button class="btn btn-sm btn-danger btn-revoke-role" data-user-id="' + user.id + '" data-role-name="' + role.name + '"><i class="bi bi-x-circle"></i></button></td></tr>';
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    html += '<p class="text-muted">暂无角色</p>';
+                }
+
+                html += '<h6 class="mt-3">分配新角色</h6>' +
+                    '<div class="mb-2">' +
+                    '<select id="roleSelect" class="form-select"><option value="">选择角色...</option>';
+                allRoles.forEach(function(role) {
+                    var assigned = roles.some(function(r) { return r.name === role.name; });
+                    if (!assigned) {
+                        html += '<option value="' + role.name + '">' + role.name + (role.description ? ' - ' + role.description : '') + '</option>';
+                    }
+                });
+                html += '</select></div>' +
+                    '<button class="btn btn-primary btn-sm" id="assignRoleBtn"><i class="bi bi-plus-lg me-1"></i>分配</button>';
+
+                $('#assignRoleContent').html(html);
+                
+                setTimeout(function() {
+                    $('#roleSelect').select2({
+                        theme: 'bootstrap-5',
+                        width: '100%',
+                        placeholder: '选择角色...',
+                        allowClear: true,
+                        dropdownParent: $('#assignRoleModal')
+                    });
+                }, 50);
+
+                // 提交分配
+                $('#assignRoleBtn').on('click', function() {
+                    var roleName = $('#roleSelect').val();
+                    if (!roleName) { showToast('请选择要分配的角色', 'warning'); return; }
+                    $.ajax({
+                        url: '/system/rbac/api/users/' + currentUserId + '/roles/assign',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        headers: { 'X-CSRF-Token': csrfToken, 'Accept': 'application/json' },
+                        dataType: 'json',
+                        data: JSON.stringify({ role_name: roleName }),
+                        success: function(res) {
+                            if (res.success) {
+                                showToast('角色分配成功', 'success');
+                                // 刷新分配模态框
+                                openAssignRoleModal(currentUserId, $('#assignRoleModal').data('from'));
+                                // 如果详情模态框还开着，也刷新它
+                                if ($('#userDetailModal').hasClass('show')) {
+                                    refreshUserDetailSilently(currentUserId);
+                                }
+                            } else {
+                                showToast(res.message || '分配失败', 'danger');
+                            }
+                        },
+                        error: function(xhr) { showToast(xhr.responseJSON?.message || '请求失败', 'danger'); }
+                    });
+                });
+            }
+
+            // ========== 查看权限 ==========
+            $(document).on('click', '.btn-open-view-permissions', function() {
+                var userId = $(this).data('user-id');
+                openViewPermissionsModal(userId);
+            });
+
+            $(document).on('click', '.btn-success[title="查看权限"], .btn-success[title="查看权限"] *', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this).closest('.btn-success');
+                var rowData = $btn.attr('data-row-data');
+                var userId;
+                if (rowData) {
+                    userId = JSON.parse(decodeURIComponent(rowData)).id;
+                } else {
+                    var href = $btn.attr('href');
+                    var parts = href.split('/');
+                    userId = parts[parts.length - 2];
+                }
+                openViewPermissionsModal(userId);
+            });
+
+            window.openViewPermissionsModal = function(userId) {
+                currentUserId = userId;
+                currentModal = 'permissions';
+                $('#viewPermissionsModalLabel').html('<i class="bi bi-shield-check me-2"></i>用户权限');
+                $('#permissionsContent').html('<div class="text-center text-muted py-5"><i class="bi bi-hourglass-split display-4"></i><p>加载中...</p></div>');
+                viewPermissionsModal.show();
+
+                $.ajax({
+                    url: '/system/rbac/api/users/' + userId + '/permissions',
+                    type: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        renderPermissionsModal(response.data || response);
+                    },
+                    error: function(xhr) {
+                        $('#permissionsContent').html('<div class="alert alert-danger">加载失败</div>');
+                    }
+                });
+            };
+
+            function renderPermissionsModal(data) {
+                var user = data.user;
+                var permissions = data.permissions || [];
+
+                var html = '<div class="mb-3"><strong>用户：</strong>' + (user.realName || user.username) + '</div>';
+
+                if (permissions.length > 0) {
+                    html += '<table class="table table-sm table-striped"><thead><tr><th>权限名称</th><th>描述</th><th>规则</th></tr></thead><tbody>';
+                    permissions.forEach(function(perm) {
+                        html += '<tr><td>' + perm.name + '</td><td>' + (perm.description || '—') + '</td><td>' + (perm.rule_name || '—') + '</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    html += '<div class="text-center text-muted py-4">' +
+                        '<i class="bi bi-shield-x display-4 d-block mb-2"></i>' +
+                        '<p>暂无权限</p>' +
+                        '<small>权限通过角色自动继承，请为用户分配角色</small>' +
+                        '</div>';
+                }
+
+                $('#permissionsContent').html(html);
+            }
+
+            // ========== 撤销角色 ==========
+            $(document).on('click', '.btn-revoke-role', function() {
+                var userId = $(this).data('user-id');
+                var roleName = $(this).data('role-name');
+                if (!confirm('确定要撤销用户 "' + roleName + '" 角色吗？')) return;
+
+                $.ajax({
+                    url: '/system/rbac/api/users/' + userId + '/roles/remove',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    headers: { 'X-CSRF-Token': csrfToken, 'Accept': 'application/json' },
+                    dataType: 'json',
+                    data: JSON.stringify({ role_name: roleName }),
+                    success: function(res) {
+                        if (res.success) {
+                            showToast('角色撤销成功', 'success');
+                            // 刷新分配模态框
+                            if ($('#assignRoleModal').hasClass('show')) {
+                                openAssignRoleModal(userId, $('#assignRoleModal').data('from'));
+                            }
+                            // 刷新详情模态框
+                            if ($('#userDetailModal').hasClass('show')) {
+                                refreshUserDetailSilently(userId);
+                            }
+                        } else {
+                            showToast(res.message || '撤销失败', 'danger');
+                        }
+                    },
+                    error: function(xhr) { showToast(xhr.responseJSON?.message || '请求失败', 'danger'); }
+                });
+            });
+
+            // ========== 模态框关闭时清理状态 ==========
+            $('#userDetailModal').on('hidden.bs.modal', function() {
+                // 如果分配模态框还开着，说明是从详情打开的，不用清理 currentUserId
+                if (!$('#assignRoleModal').hasClass('show') && !$('#viewPermissionsModal').hasClass('show')) {
+                    currentUserId = '';
+                    currentModal = null;
+                }
+            });
+        });

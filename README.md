@@ -28,14 +28,17 @@ gushui8/
 ├── .env.example            # 环境变量示例
 ├── .gitignore
 ├── public/                 # 静态资源
-├── shared/                 # 共享模块与视图
+├── shared/                 
 │   ├── views/              # 全局 Pug 模板
 │   └── ...
 ├── src/                    # 源码配置
 │   ├── config/             # 安全与应用配置
-│   └── shared/
-│       └── database/       # Sequelize 模型
-└── features/               # 功能模块（各自包含 routes / views / models）
+│   ├── shared/             # 共享模块与视图
+│   |   |── database/       # Sequelize 模型
+│   |   └── views/          # 全局 Pug 模板
+│   └── ...
+├── features/               # 功能模块（各自包含 routes / views / models）
+│   └── modules/               # 功能模块（各自包含 routes / views / models）
 ```
 
 ## 快速开始

@@ -1,0 +1,83 @@
+extends /layouts/adminlte4.pug
+
+block content
+    .row
+        .card.mb-2
+            .card-header
+                h3.card-title
+                    | 审计日志
+                .card-tools
+                    a.btn.btn-primary.rounded-pill(href="/system/auditLog/stats") 查看统计
+            .card-body
+                h5.mb-3 筛选条件
+                form(method="GET" action="/system/auditLog")
+                    .row.g-3
+                        .col-md-2
+                            select.form-select(name="module")
+                                option(value="") 所有模块
+                                each mod in modules
+                                    option(value=mod.module selected=(filters.module === mod.module))
+                                        | #{mod.module} (#{mod.count})
+                        .col-md-2
+                            select.form-select(name="actionType")
+                                option(value="") 所有操作
+                                each at in actionTypes
+                                    option(value=at.action_type selected=(filters.actionType === at.action_type))
+                                        | #{at.action_type} (#{at.count})
+                        .col-md-2
+                            select.form-select(name="severity")
+                                option(value="") 所有级别
+                                option(value="info" selected=(filters.severity === 'info')) 信息
+                                option(value="warning" selected=(filters.severity === 'warning')) 警告
+                                option(value="error" selected=(filters.severity === 'error')) 错误
+                                option(value="critical" selected=(filters.severity === 'critical')) 严重
+                        .col-md-2
+                            input.form-control(type="date" name="startDate" value=filters.startDate placeholder="开始日期")
+                        .col-md-2
+                            input.form-control(type="date" name="endDate" value=filters.endDate placeholder="结束日期")
+                        .col-md-2
+                            input.form-control(type="text" name="search" value=filters.search placeholder="搜索...")
+                    .row.mt-2
+                        .col-12
+                            button.btn.btn-primary.rounded-pill(type="submit") 筛选
+                            a.btn.btn-secondary.rounded-pill.ms-2(href="/system/auditLog") 重置
+
+        .card
+            .table-responsive
+                table.table.table-hover.table-striped.mb-0
+                    thead.table-light
+                        tr
+                            th ID
+                            th 用户
+                            th 模块
+                            th 操作
+                            th 目标
+                            th 描述
+                            th 级别
+                            th 时间
+                    tbody
+                        if logs && logs.length > 0
+                            each log in logs
+                                tr
+                                    td
+                                        a(href=`/system/auditLog/${log.id}`)= log.id
+                                    td= log.username || '-'
+                                    td
+                                        span.badge.bg-secondary= log.module
+                                    td
+                                        span.badge.bg-primary= log.action_type
+                                    td= log.target_type ? `${log.target_type}#${log.target_id}` : '-'
+                                    td.text-truncate(style="max-width:300px")= log.description
+                                    td
+                                        span(class=log.getSeverityBadgeClass() + ' badge')= log.getSeverityText()
+                                    td= log.createdAt ? new Date(log.createdAt).toLocaleString('zh-CN') : '-'
+                        else
+                            tr
+                                td.text-center(colspan="8") 暂无审计日志
+
+        if pagination && pagination.totalPages > 1
+            nav.mt-3
+                ul.pagination.justify-content-center
+                    each page in Array.from({length: pagination.totalPages}, (_, i) => i + 1)
+                        li.page-item(class=(page === pagination.page ? 'active' : ''))
+                            a.page-link(href=`${pagination.baseUrl}?page=${page}`)= page

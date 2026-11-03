@@ -1,0 +1,271 @@
+//- src/shared/views/mixins/form.pug
+//- AdminLTE4 / Bootstrap 5 风格表单混入
+//-
+//- 参数:
+//-   title       - 表单标题（显示在 card-header）
+//-   action      - 表单提交地址
+//-   method      - 提交方法: 'post' | 'put' | 'patch' | 'delete'（默认: 'post'）
+//-   fields      - 字段配置数组:
+//-     {
+//-       name: '字段名',
+//-       label: '标签文字',
+//-       type: 'text|email|password|number|textarea|select|date|file|checkbox|radio',
+//-       value: '默认值',
+//-       placeholder: '占位符',
+//-       required: true/false,
+//-       options: [{ value: '1', label: '选项1' }],  // 仅用于 select/radio
+//-       rows: 3,  // 仅用于 textarea
+//-       helpText: '帮助文字',
+//-       error: '错误信息',
+//-       class: '额外CSS类',
+//-       cols: 6  // 列宽（Bootstrap 栅格，默认: 12）
+//-     }
+//-   buttons     - 按钮配置:
+//-     {
+//-       submit: '提交按钮文字',
+//-       submitIcon: 'bi-check-lg',
+//-       submitClass: 'btn-primary',
+//-       cancel: '取消按钮文字',
+//-       cancelHref: '取消链接地址',
+//-       extra: [{ text: '额外按钮', href: '#', class: 'btn-info', icon: 'bi-gear' }]
+//-     }
+//-   csrfToken   - CSRF Token 值
+//-   options     - 可选配置:
+//-     {
+//-       enctype: 'multipart/form-data',
+//-       id: '表单ID',
+//-       class: '额外CSS类',
+//-       novalidate: true/false,
+//-       layout: 'vertical|horizontal',  // 布局方式
+//-       labelWidth: 3,  // 水平布局时标签宽度（Bootstrap 栅格）
+//-       showErrors: true/false  // 是否显示顶部错误提示
+//-     }
+//-   errors      - 错误对象 { fieldName: '错误消息' }
+//-   oldData     - 旧数据对象（用于表单验证失败后回填）
+//-
+//- 用法:
+//-   +formCard('创建用户', '/users', fields, buttons, csrfToken, options, errors, oldData)
+
+mixin formCard(title, action, fields = [], buttons = {}, csrfToken = '', options = {}, errors = {}, oldData = {})
+  - formMethod = (method || options.method || 'post').toLowerCase()
+  - formId = options.id || 'mainForm'
+  - formClass = options.class || ''
+  - formEnctype = options.enctype || ''
+  - novalidate = options.novalidate !== false
+  - layout = options.layout || 'vertical'
+  - labelWidth = options.labelWidth || 3
+  - inputWidth = 12 - labelWidth
+  - showErrors = options.showErrors !== false
+  - hasGlobalErrors = errors && errors._global
+  -
+  - isPutOrPatch = formMethod === 'put' || formMethod === 'patch' || formMethod === 'delete'
+  
+  .card
+    .card-header
+      h3.card-title
+        i.bi.bi-pencil-square.me-2
+        = title
+    
+    .card-body
+      if showErrors && hasGlobalErrors
+        .alert.alert-danger.alert-dismissible.fade.show
+          button.btn-close(type='button' data-bs-dismiss='alert')
+          ul.mb-0
+            each err in (Array.isArray(errors._global) ? errors._global : [errors._global])
+              li= err
+      
+      form(id=formId method=(formMethod === 'get' ? 'get' : 'post') action=action class=formClass enctype=formEnctype novalidate=novalidate)
+        if csrfToken
+          input(type='hidden' name='_csrf' value=csrfToken)
+        
+        if isPutOrPatch
+          input(type='hidden' name='_method' value=formMethod.toUpperCase())
+        
+        if layout === 'horizontal'
+          each field in fields
+            - fieldValue = oldData[field.name] !== undefined ? oldData[field.name] : (field.value || '')
+            - fieldError = errors[field.name] || field.error
+            - fieldRequired = field.required || false
+            - fieldPlaceholder = field.placeholder || '请输入' + (field.label || field.name)
+            - fieldType = field.type || 'text'
+            - fieldHelpText = field.helpText || ''
+            - fieldCols = field.cols || 12
+            - fieldClass = field.class || ''
+            -
+            - hasError = !!fieldError
+            - inputClass = 'form-control' + (hasError ? ' is-invalid' : '') + (fieldClass ? ' ' + fieldClass : '')
+            
+            .row.mb-3
+              label.col-form-label.col-md-3(class=fieldRequired ? 'required' : '' for=field.name)
+                = field.label || field.name
+                if fieldRequired
+                  span.text-danger *
+              
+              .col-md-9
+                if fieldType === 'textarea'
+                  textarea.form-control(
+                    id=field.name
+                    name=field.name
+                    rows=field.rows || 3
+                    placeholder=fieldPlaceholder
+                    class=inputClass
+                    required=fieldRequired
+                  )= fieldValue
+                else if fieldType === 'select'
+                  select.form-control(id=field.name name=field.name class=inputClass required=fieldRequired)
+                    option(value='')= field.optionLabel || '请选择'
+                    each opt in (field.options || [])
+                      option(value=opt.value selected=String(fieldValue) === String(opt.value))= opt.label
+                else if fieldType === 'file'
+                  input.form-control(type='file' id=field.name name=field.name class=inputClass accept=field.accept || '')
+                else if fieldType === 'checkbox'
+                  .form-check
+                    input.form-check-input(
+                      type='checkbox'
+                      id=field.name
+                      name=field.name
+                      value=fieldValue || '1'
+                      checked=fieldValue ? true : false
+                      class=hasError ? 'is-invalid' : ''
+                    )
+                    label.form-check-label(for=field.name)= field.label || field.name
+                else if fieldType === 'radio'
+                  each opt in (field.options || [])
+                    .form-check
+                      input.form-check-input(
+                        type='radio'
+                        id=field.name + '_' + opt.value
+                        name=field.name
+                        value=opt.value
+                        checked=String(fieldValue) === String(opt.value)
+                      )
+                      label.form-check-label(for=field.name + '_' + opt.value)= opt.label
+                else
+                  input.form-control(
+                    type=fieldType
+                    id=field.name
+                    name=field.name
+                    value=fieldValue
+                    placeholder=fieldPlaceholder
+                    class=inputClass
+                    required=fieldRequired
+                    min=field.min || ''
+                    max=field.max || ''
+                    step=field.step || ''
+                    pattern=field.pattern || ''
+                  )
+                
+                if fieldHelpText
+                  .form-text= fieldHelpText
+                
+                if hasError
+                  .invalid-feedback= fieldError
+        
+        else
+          //- vertical layout
+          .row
+            each field in fields
+              - fieldValue = oldData[field.name] !== undefined ? oldData[field.name] : (field.value || '')
+              - fieldError = errors[field.name] || field.error
+              - fieldRequired = field.required || false
+              - fieldPlaceholder = field.placeholder || '请输入' + (field.label || field.name)
+              - fieldType = field.type || 'text'
+              - fieldHelpText = field.helpText || ''
+              - fieldCols = field.cols || 12
+              - fieldClass = field.class || ''
+              -
+              - hasError = !!fieldError
+              - inputClass = 'form-control' + (hasError ? ' is-invalid' : '') + (fieldClass ? ' ' + fieldClass : '')
+              
+              .col-md-12(class='col-' + fieldCols + ' mb-3')
+                label.form-label(for=field.name)
+                  = field.label || field.name
+                  if fieldRequired
+                    span.text-danger *
+                
+                if fieldType === 'textarea'
+                  textarea.form-control(
+                    id=field.name
+                    name=field.name
+                    rows=field.rows || 3
+                    placeholder=fieldPlaceholder
+                    class=inputClass
+                    required=fieldRequired
+                  )= fieldValue
+                else if fieldType === 'select'
+                  select.form-control(id=field.name name=field.name class=inputClass required=fieldRequired)
+                    option(value='')= field.optionLabel || '请选择'
+                    each opt in (field.options || [])
+                      option(value=opt.value selected=String(fieldValue) === String(opt.value))= opt.label
+                else if fieldType === 'file'
+                  input.form-control(type='file' id=field.name name=field.name class=inputClass accept=field.accept || '')
+                else if fieldType === 'checkbox'
+                  .form-check
+                    input.form-check-input(
+                      type='checkbox'
+                      id=field.name
+                      name=field.name
+                      value=fieldValue || '1'
+                      checked=fieldValue ? true : false
+                      class=hasError ? 'is-invalid' : ''
+                    )
+                    label.form-check-label(for=field.name)= field.label || field.name
+                else if fieldType === 'radio'
+                  each opt in (field.options || [])
+                    .form-check
+                      input.form-check-input(
+                        type='radio'
+                        id=field.name + '_' + opt.value
+                        name=field.name
+                        value=opt.value
+                        checked=String(fieldValue) === String(opt.value)
+                      )
+                      label.form-check-label(for=field.name + '_' + opt.value)= opt.label
+                else
+                  input.form-control(
+                    type=fieldType
+                    id=field.name
+                    name=field.name
+                    value=fieldValue
+                    placeholder=fieldPlaceholder
+                    class=inputClass
+                    required=fieldRequired
+                    min=field.min || ''
+                    max=field.max || ''
+                    step=field.step || ''
+                    pattern=field.pattern || ''
+                  )
+                
+                if fieldHelpText
+                  .form-text= fieldHelpText
+                
+                if hasError
+                  .invalid-feedback= fieldError
+    
+    if buttons
+      .card-footer
+        .d-flex.gap-2
+          if buttons.submit !== false
+            - submitText = buttons.submit || '提交'
+            - submitIcon = buttons.submitIcon || 'bi-check-lg'
+            - submitClass = buttons.submitClass || 'btn-primary'
+            button.btn(class=submitClass type='submit' form=formId)
+              i.bi(class=submitIcon + ' me-1')
+              = submitText
+          
+          if buttons.cancel
+            a.btn.btn-secondary(href=buttons.cancel)
+              i.bi.bi-x-lg.me-1
+              = buttons.cancelText || '取消'
+          
+          if buttons.extra
+            each btn in buttons.extra
+              a.btn(class=btn.class || 'btn-secondary' href=btn.href)
+                if btn.icon
+                  i.bi(class=btn.icon + ' me-1')
+                = btn.text
+
+//- 简化版表单混入（仅包含基本字段）
+mixin simpleForm(action, fields = [], buttons = {}, csrfToken = '', options = {})
+  - formTitle = options.title || '表单'
+  +formCard(formTitle, action, fields, buttons, csrfToken, options)

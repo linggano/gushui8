@@ -1,0 +1,167 @@
+﻿doctype html
+html(lang="zh-CN")
+    head
+        title= title || '屏幕锁定'
+        meta(http-equiv="Content-Type" content="text/html; charset=utf-8")
+        meta(name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes")
+        meta(name="color-scheme" content="light dark")
+        meta(name="theme-color" content="#007bff" media="(prefers-color-scheme: light)")
+        meta(name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)")
+        meta(name="supported-color-schemes" content="light dark")
+        meta(name="csrf-token" content=csrfToken)
+        link(rel="stylesheet" href="/npm/@fontsource/open-sans/index.css")
+        link(rel="stylesheet" href="/npm/overlayscrollbars/styles/overlayscrollbars.min.css")
+        link(rel="stylesheet" href="/npm/bootstrap-icons/font/bootstrap-icons.min.css")
+        link(rel="stylesheet" href="/npm/adminlte4/dist/css/adminlte.min.css")
+    body(class="lockscreen bg-body-secondary")
+        .lockscreen-wrapper
+            .lockscreen-logo
+                a(href="/")
+                    b Admin
+                    | LTE
+
+            .lockscreen-name= (user && user.username) || '用户'
+
+            .lockscreen-item
+                .lockscreen-image
+                    img(src=avatar || '/npm/adminlte4/dist/assets/img/user1-128x128.jpg' alt="User Image")
+
+                //- ✅ 加 id，供 JS 绑定
+                form.lockscreen-credentials#unlockForm(method="post" action="/auth/lockscreen")
+                    input(type='hidden' name='_csrf' value=csrfToken)
+                    .input-group
+                        input.form-control.shadow-none(
+                            type="password"
+                            name="password"
+                            placeholder="密码"
+                            required
+                            autofocus
+                        )
+                        .input-group-text.border-0.bg-transparent.px-1
+                            button.btn.shadow-none(type="submit" id="unlockBtn")
+                                i.bi.bi-arrow-right-circle.text-body-secondary
+
+            //- 错误提示（服务端 flash + 前端 AJAX 共用）
+            #errorMsg.help-block.text-center.text-danger
+                if error && error.length
+                    each err in error
+                        div= err
+
+            if !error || !error.length
+                .help-block.text-center 输入密码以恢复您的会话
+
+            .text-center
+                a(href="/auth/login" class="text-decoration-none") 或以其他用户身份登录
+
+            .lockscreen-footer.text-center
+                small
+                    | Copyright © 2014-2026 &nbsp;
+                    b
+                        a(href="https://adminlte.io" class="link-primary") AdminLTE.io
+                    br
+                    | 版权所有
+
+        //- ✅ 先加载 jQuery（AJAX 依赖）
+        script(src="/npm/jquery/dist/jquery.min.js" nonce=nonce)
+        script(src="/npm/overlayscrollbars/browser/overlayscrollbars.browser.es6.min.js" nonce=nonce)
+        script(src="/npm/@popperjs/core/dist/umd/popper.min.js" nonce=nonce)
+        script(src="/npm/bootstrap/dist/js/bootstrap.bundle.min.js" nonce=nonce)
+        script(src="/npm/adminlte4/dist/js/adminlte.min.js" nonce=nonce)
+
+        script(crossorigin="anonymous" nonce=nonce).
+            const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
+            const Default = {
+                scrollbarTheme: 'os-theme-light',
+                scrollbarAutoHide: 'leave',
+                scrollbarClickScroll: true,
+            };
+            
+            document.addEventListener('DOMContentLoaded', function () {
+                const sidebarWrapper = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
+                const isMobile = window.innerWidth <= 992;
+
+                if (
+                    sidebarWrapper &&
+                    OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined &&
+                    !isMobile
+                ) {
+                    OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
+                        scrollbars: {
+                            theme: Default.scrollbarTheme,
+                            autoHide: Default.scrollbarAutoHide,
+                            clickScroll: Default.scrollbarClickScroll,
+                        },
+                    });
+                }
+            });
+
+        //- ✅ AJAX 解锁
+        script(nonce=nonce).
+            $(function() {
+                var $form = $('#unlockForm');
+                var $btn = $('#unlockBtn');
+                var $error = $('#errorMsg');
+
+                // 页面加载时清空服务端 flash 错误（如果用户重新输入）
+                var $pwd = $form.find('input[name="password"]');
+                $pwd.on('input', function() {
+                    $error.text('');
+                });
+
+                $form.on('submit', function(e) {
+                    e.preventDefault();
+
+                    var password = $pwd.val();
+                    if (!password) {
+                        $error.text('请输入密码');
+                        $pwd.focus();
+                        return false;
+                    }
+
+                    // 禁用按钮，防止重复提交
+                    $btn.prop('disabled', true);
+                    var originalHtml = $btn.html();
+                    $btn.html('<i class="bi bi-hourglass-split text-body-secondary"></i>');
+
+                    $.ajax({
+                        url: '/auth/lockscreen',
+                        method: 'POST',
+                        data: $form.serialize(),
+                        dataType: 'json',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        success: function(res) {
+                            if (res && res.success) {
+                                // 优先使用服务端记忆的路由（triggerLock 已通过 ?return= 记录到 session）
+                                // 其次使用 sessionStorage（每个 tab 独立，作为兜底）
+                                var returnUrl = res.redirect
+                                    || sessionStorage.getItem('lock_return_url')
+                                    || '/dashboard';
+
+                                // 清空 sessionStorage
+                                sessionStorage.removeItem('lock_return_url');
+
+                                // 跳回
+                                window.location.href = returnUrl;
+                            } else {
+                                $error.text((res && res.message) || '解锁失败');
+                                $btn.prop('disabled', false).html(originalHtml);
+                                $pwd.val('').focus();
+                            }
+                        },
+                        error: function(xhr) {
+                            var msg = '解锁失败，请重试';
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                msg = xhr.responseJSON.message;
+                            }
+                            $error.text(msg);
+                            $btn.prop('disabled', false).html(originalHtml);
+                            $pwd.val('').focus();
+                        }
+                    });
+
+                    return false;
+                });
+            });

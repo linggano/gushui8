@@ -1,0 +1,32 @@
+extends /layouts/adminlte4
+include /mixins/table.pug
+
+block content
+    .row
+        .col-sm-12
+            +dataTable(
+                '用户登录日志',
+                [
+                    { title: 'ID', field: 'id', width: '80px' },
+                    { title: '用户名', field: 'username', width: '160px' },
+                    { title: 'IP地址', field: 'ip_address', width: '160px' },
+                    { title: '客户端', render: function(item) { return item.user_agent ? item.user_agent.substring(0, 50) + (item.user_agent.length > 50 ? '...' : '') : '-'; } },
+                    { title: '登录结果', render: function(item) { return item.success ? '<span class="badge text-bg-success">成功</span>' : '<span class="badge text-bg-danger">失败</span>'; } },
+                    { title: '失败原因', field: 'failure_reason' },
+                    { title: '登录时间', field: 'created_at', format: 'date', width: '180px' }
+                ],
+                loginLogs.map(function(item) {
+                    return {
+                        id: item.id,
+                        username: (item.user && item.user.username) || '-',
+                        ip_address: item.ip_address || '-',
+                        user_agent: item.user_agent || '',
+                        success: item.success,
+                        failure_reason: item.failure_reason || '-',
+                        created_at: item.created_at || null
+                    };
+                }),
+                {},
+                [],
+                pagination
+            )

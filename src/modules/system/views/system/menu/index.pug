@@ -1,0 +1,404 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/table.pug
+include /mixins/modal.pug
+include /mixins/input_field.pug
+
+block append styles
+    link(rel="stylesheet", href="/npm/select2/dist/css/select2.min.css")
+    link(rel="stylesheet", href="/npm/select2-bootstrap-5-theme/dist/select2-bootstrap-5-theme.min.css")
+
+block content
+    .row.mb-3
+        .col-sm-12
+            .card
+                .card-header
+                    h3.card-title 按条件搜索
+                .card-body.py-2
+                    form(method='GET', action='/system/menus')
+                        .row.g-2.align-items-end
+                            .col-md-4
+                                label.form-label 父级菜单
+                                select.form-select(name='parent')
+                                    option(value='') 全部
+                                    option(value='root', selected=filters && filters.parent === 'root') 顶级菜单（无父级）
+                                    each pm in parentMenus
+                                        option(value=pm.value, selected=String(filters && filters.parent) === String(pm.value))= pm.label
+                            .col-auto
+                                button.btn.btn-primary.rounded-pill.me-2(type='submit')
+                                    i.bi.bi-search.me-1
+                                    | 搜索
+                                a.btn.btn-outline-secondary.rounded-pill(href='/system/menus')
+                                    i.bi.bi-arrow-counterclockwise.me-1
+                                    | 重置
+
+    .row
+        .col-sm-12 
+            +simpleTable(
+                '菜单管理',
+                [
+                    { title: '菜单名称', field: 'name' },
+                    { title: '路由', field: 'route' },
+                    { title: '父级菜单', field: 'parent' },
+                    { title: '排序', field: 'order' },
+                    { title: '附加数据', field: 'data', format: 'json' },
+                ],
+                menus,
+                {
+                    create: '#',
+                    edit: '#',
+                    delete: '/system/menus/:name',
+                },
+                [],
+                pagination
+            )
+
+    //- 菜单创建/编辑模态框
+    +modal('menuModal', { title: '新增菜单', size: 'lg', icon: 'bi-menu-button-wide' })
+        .row
+            .col-md-6
+                +formField('name', { label: '菜单名称', required: true, placeholder: '请输入菜单名称', icon: 'bi-menu-button-wide' })
+            .col-md-6
+                +formField('parent', { label: '父级菜单', type: 'select', placeholder: '请选择父级菜单（可选）', icon: 'bi-folder', options: parentMenus })
+            .col-md-6
+                .form-group
+                    label.form-label
+                        i.bi.bi-link.me-1
+                        | 路由路径
+                    select.form-select#route(name='route')
+                        option(value='#') 顶级菜单（#）
+                        option(value='') 请选择路由（可选）
+                        if routes && routes.length > 0
+                            each route in routes
+                                option(value=route.name)= route.name
+            .col-md-6
+                +formField('order', { label: '排序', type: 'number', placeholder: '请输入排序值，数字越小越靠前', icon: 'bi-sort-down' })
+            .col-md-12
+                +formField('data', { label: '附加数据', type: 'textarea', placeholder: '请输入JSON格式的附加数据（可选）', icon: 'bi-database', rows: 3 })
+
+block prepend scripts
+    script(src="/npm/jquery/dist/jquery.min.js", nonce=nonce)
+
+block append scripts
+    script(src="/npm/select2/dist/js/select2.min.js", nonce=nonce)
+    script(nonce=nonce).
+        $(function() {
+            var csrfToken = $('meta[name="csrf-token"]').attr('content');
+            var modalEl = document.getElementById('menuModal');
+            var modal = new bootstrap.Modal(modalEl);
+            var $modal = $('#menuModal');
+            var $submitBtn = $('#menuModalSubmitBtn');
+            var $deleteBtn = $('#deleteBtn');
+            var currentMenuName = '';
+            var $routeSelect = $('#route');
+
+            // 初始化 Select2
+            function initRouteSelect() {
+                $routeSelect.select2({
+                    theme: 'bootstrap-5',
+                    placeholder: '请选择路由（可选）',
+                    allowClear: true,
+                    width: '100%',
+                    dropdownParent: $modal,
+                    language: {
+                        noResults: function() {
+                            return '未找到匹配的路由';
+                        },
+                        searching: function() {
+                            return '搜索中...';
+                        }
+                    }
+                });
+            }
+
+            // Toast 提示函数
+            function showToast(message, type) {
+                var $toast = $('<div class="toast align-items-center text-bg-' + type + ' border-0 position-fixed" ' +
+                    'style="top: 1rem; right: 1rem; z-index: 1080; min-width: 240px;">' +
+                    '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+                    '</div></div>');
+                $('body').append($toast);
+                var toast = new bootstrap.Toast($toast[0], { delay: 3000 });
+                toast.show();
+                $toast.on('hidden.bs.toast', function() { $(this).remove(); });
+            }
+
+            // 显示成功消息
+            function showSuccess(message) {
+                showToast(message, 'success');
+            }
+
+            // 显示错误消息
+            function showError(message) {
+                showToast(message, 'danger');
+            }
+
+            // 新增按钮点击
+            $(document).on('click', '#createBtn', function(e) {
+                e.preventDefault();
+                openCreateModal();
+            });
+
+            // 打开新增模态框
+            function openCreateModal() {
+                $('#menuModalLabel').html('<i class="bi bi-plus me-2"></i>新增菜单');
+                $modal.data('action', '/system/menus');
+                $('#name').val('');
+                $('#parent').val('');
+                $routeSelect.val('#').trigger('change');
+                $('#order').val('');
+                $('#data').val('');
+                $submitBtn.html('<i class="bi bi-save me-1"></i>保存');
+                $deleteBtn.hide();
+                currentMenuName = '';
+                
+                // 启用菜单名字段
+                $('#name').prop('disabled', false);
+                
+                modal.show();
+            }
+
+            // 编辑按钮点击
+            $(document).on('click', '.btn-warning[title="编辑"], .btn-warning[title="编辑"] *', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this).closest('.btn-warning');
+                var menuDataAttr = $btn.attr('data-row-data');
+                if (!menuDataAttr) {
+                    showError('无法获取菜单数据');
+                    return;
+                }
+                
+                var menuData = JSON.parse(decodeURIComponent(menuDataAttr));
+                openEditModal(menuData);
+            });
+
+            // 打开编辑模态框
+            function openEditModal(menuData) {
+                currentMenuName = menuData.name;
+                
+                $('#menuModalLabel').html('<i class="bi bi-pencil me-2"></i>编辑菜单');
+                $modal.data('action', '/system/menus/' + encodeURIComponent(menuData.name));
+                
+                $('#name').val(menuData.name || '');
+                $('#parent').val(menuData.parent || '');
+                
+                // 设置路由选择
+                if (menuData.route) {
+                    // 检查路由是否在选项中
+                    var routeExists = $routeSelect.find('option[value="' + menuData.route + '"]').length > 0;
+                    if (routeExists) {
+                        $routeSelect.val(menuData.route).trigger('change');
+                    } else {
+                        // 如果路由不在预定义列表中，添加一个选项
+                        var newOption = new Option(menuData.route, menuData.route, true, true);
+                        $routeSelect.append(newOption).trigger('change');
+                    }
+                } else {
+                    $routeSelect.val('').trigger('change');
+                }
+                
+                $('#order').val(menuData.order || '');
+                
+                // 处理 data 字段
+                let dataValue = '';
+                if (menuData.data && menuData.data !== '-' && menuData.data !== null && menuData.data !== undefined) {
+                    if (typeof menuData.data === 'object') {
+                        dataValue = JSON.stringify(menuData.data, null, 2);
+                    } else {
+                        dataValue = String(menuData.data);
+                    }
+                }
+                $('#data').val(dataValue);
+                
+                $submitBtn.html('<i class="bi bi-save me-1"></i>更新');
+                $deleteBtn.show().off('click').on('click', function() {
+                    deleteMenu(menuData.name);
+                });
+                
+                // 禁用菜单名字段（编辑时不允许修改名称）
+                $('#name').prop('disabled', true);
+                
+                modal.show();
+            }
+
+            // 删除菜单函数
+            function deleteMenu(name) {
+                if (!name) {
+                    showError('无法获取菜单名称');
+                    return;
+                }
+
+                if (!confirm(`确定要删除菜单：${name} 吗？此操作不可撤销。`)) {
+                    return;
+                }
+
+                $.ajax({
+                    url: '/system/menus/' + encodeURIComponent(name),
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showSuccess('菜单删除成功');
+                            modal.hide();
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            showError(response.message || '删除失败');
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON?.message || '请求失败，请稍后再试';
+                        showError(errorMsg);
+                    }
+                });
+            }
+
+            // 解析JSON数据
+            function parseJSON(jsonStr) {
+                try {
+                    return jsonStr ? JSON.parse(jsonStr) : null;
+                } catch (e) {
+                    return jsonStr;
+                }
+            }
+
+            // 提交按钮点击
+            $submitBtn.on('click', function() {
+                // 简单验证
+                if (!$('#name').val()) {
+                    showError('菜单名称不能为空');
+                    return;
+                }
+
+                const formData = {
+                    name: $('#name').val(),
+                    route: $routeSelect.val() || null,
+                    order: $('#order').val() ? parseInt($('#order').val()) : null
+                };
+                
+                const parentVal = $('#parent').val();
+                if (parentVal) {
+                    formData.parent = parseInt(parentVal);
+                }
+                
+                const dataValue = parseJSON($('#data').val());
+                if (dataValue !== null) {
+                    formData.data = dataValue;
+                }
+
+                const url = $modal.data('action');
+                const isUpdate = url.includes('/system/menus/') && currentMenuName;
+                const method = isUpdate ? 'PUT' : 'POST';
+                
+                $submitBtn.prop('disabled', true).html('<i class="bi bi-spinner-spin me-1"></i>保存中...');
+                
+                $.ajax({
+                    url: url,
+                    type: method,
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    data: JSON.stringify(formData),
+                    success: function(response) {
+                        if (response.success) {
+                            showSuccess(isUpdate ? '菜单更新成功！' : '菜单创建成功！');
+                            modal.hide();
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            showError(response.message || '操作失败');
+                        }
+                    },
+                    error: function(xhr) {
+                        let errorMsg = '请求失败，请稍后再试';
+                        if (xhr.responseJSON) {
+                            if (xhr.responseJSON.message) {
+                                errorMsg = xhr.responseJSON.message;
+                            } else if (xhr.responseJSON.errors) {
+                                errorMsg = xhr.responseJSON.errors.map(e => e.msg).join(', ');
+                            }
+                        } else if (xhr.responseText) {
+                            try {
+                                const resp = JSON.parse(xhr.responseText);
+                                if (resp.message) errorMsg = resp.message;
+                                else if (resp.errors) errorMsg = resp.errors.map(e => e.msg).join(', ');
+                            } catch (e) {
+                                // ignore
+                            }
+                        }
+                        showError(errorMsg);
+                    },
+                    complete: function() {
+                        $submitBtn.prop('disabled', false).html('<i class="bi bi-save me-1"></i>保存');
+                    }
+                });
+            });
+
+            // JSON 数据格式验证
+            $('#data').on('blur', function() {
+                const $input = $(this);
+                const value = $input.val().trim();
+                
+                if (!value) {
+                    $input.removeClass('is-invalid is-valid');
+                    return;
+                }
+                
+                try {
+                    JSON.parse(value);
+                    $input.removeClass('is-invalid').addClass('is-valid');
+                } catch (e) {
+                    $input.removeClass('is-valid').addClass('is-invalid');
+                    $input[0].setCustomValidity('请输入有效的JSON格式数据');
+                }
+            });
+
+            // 当模态框关闭时重置
+            $modal.on('hidden.bs.modal', function() {
+                $('#name').prop('disabled', false);
+                $deleteBtn.hide();
+                $routeSelect.val('').trigger('change');
+            });
+
+            // 表格中的删除按钮点击
+            $(document).on('click', '.btn-delete', function(e) {
+                e.preventDefault();
+                
+                var url = $(this).data('delete-href');
+                var name = url.split('/').pop();
+                
+                if (!confirm(`确定要删除菜单 "${name}" 吗？此操作不可撤销。`)) {
+                    return;
+                }
+                
+                $.ajax({
+                    url: url,
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showSuccess('菜单删除成功');
+                            location.reload();
+                        } else {
+                            showError(response.message || '菜单删除失败');
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON?.message || '请求失败，请稍后再试';
+                        showError(errorMsg);
+                    }
+                });
+            });
+
+            // 初始化 Select2
+            initRouteSelect();
+        });

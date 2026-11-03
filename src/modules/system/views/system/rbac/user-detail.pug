@@ -1,0 +1,49 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/detail.pug
+
+block content
+    - var statusText = user.status == 10 ? '正常' : (user.status == 0 ? '待激活' : user.status)
+    - var statusClass = user.status == 10 ? 'bg-success' : (user.status == 0 ? 'bg-warning' : 'bg-secondary')
+    - var verifyText = user.verificationStatus == 'verified' ? '已验证' : (user.verificationStatus == 'pending' ? '待验证' : user.verificationStatus)
+    - var verifyClass = user.verificationStatus == 'verified' ? 'bg-success' : (user.verificationStatus == 'pending' ? 'bg-warning' : 'bg-secondary')
+    - var sections = [{ title: '基本信息', columns: [{ fields: [{ label: '用户名', value: user.username }, { label: '姓名', value: user.realName }, { label: '邮箱', value: user.email }, { label: '手机', value: user.phone || '—' }] }, { fields: [{ label: '部门', value: user.department }, { label: '职位', value: user.position }, { label: '状态', value: statusText, type: 'badge', class: statusClass }, { label: '验证状态', value: verifyText, type: 'badge', class: verifyClass }] }] }]
+    - var actions = { buttons: [{ text: '分配角色', href: '/system/rbac/users/' + user.id + '/roles', class: 'btn btn-primary', icon: 'bi-person-gear' }, { text: '查看权限', href: '/system/rbac/users/' + user.id + '/permissions', class: 'btn btn-info', icon: 'bi-shield-check' }] }
+
+    +detailCard('用户详情', '/system/rbac/users', sections, actions)
+
+    if roles && roles.length
+        .row.mt-3
+            .col-md-8.mx-auto
+                .card
+                    .card-header
+                        h3.card-title 已分配角色
+                    .card-body
+                        table.table.table-striped.table-hover
+                            thead
+                                tr
+                                    th 角色名称
+                                    th 描述
+                            tbody
+                                each role in roles
+                                    tr
+                                        td= role.name
+                                        td= role.description || '-'
+
+    if permissions && permissions.length
+        .row.mt-3
+            .col-md-8.mx-auto
+                .card
+                    .card-header
+                        h3.card-title 已分配权限
+                    .card-body
+                        table.table.table-striped.table-hover
+                            thead
+                                tr
+                                    th 权限名称
+                                    th 描述
+                            tbody
+                                each perm in permissions
+                                    tr
+                                        td= perm.name
+                                        td= perm.description || '-'

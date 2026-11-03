@@ -1,0 +1,101 @@
+extends /layouts/adminlte4.pug
+
+block content
+    .container-fluid
+        .d-flex.justify-content-between.align-items-center.mb-3
+            h3 审计日志详情
+            a.btn.btn-secondary(href="/system/auditLog") 返回列表
+
+        .row
+            .col-md-8
+                .card.mb-3
+                    .card-header
+                        h5.mb-0 基本信息
+                    .card-body
+                        table.table.table-bordered
+                            tr
+                                th(style="width:150px") ID
+                                td= log.id
+                            tr
+                                th 操作用户
+                                td= log.username || '-'
+                            tr
+                                th 用户ID
+                                td= log.user_id || '-'
+                            tr
+                                th 模块
+                                td
+                                    span.badge.bg-secondary= log.module
+                            tr
+                                th 操作类型
+                                td
+                                    span.badge.bg-primary= log.getActionTypeText()
+                            tr
+                                th 严重程度
+                                td
+                                    span(class=log.getSeverityBadgeClass() + ' badge')= log.getSeverityText()
+                            tr
+                                th 目标对象
+                                td= log.target_type ? `${log.target_type}#${log.target_id}` : '-'
+                            tr
+                                th 操作描述
+                                td= log.description || '-'
+                            tr
+                                th IP地址
+                                td= log.ip_address || '-'
+                            tr
+                                th 请求URL
+                                td= log.request_url || '-'
+                            tr
+                                th 请求方法
+                                td= log.request_method || '-'
+                            tr
+                                th 状态码
+                                td= log.status_code || '-'
+                            tr
+                                th 操作时间
+                                td= log.created_at ? new Date(log.created_at).toLocaleString('zh-CN') : '-'
+
+                if log.old_values
+                    .card.mb-3
+                        .card-header
+                            h5.mb-0 操作前数据
+                        .card-body
+                            pre.bg-light.p-3.rounded= JSON.stringify(log.old_values, null, 2)
+
+                if log.new_values
+                    .card.mb-3
+                        .card-header
+                            h5.mb-0 操作后数据
+                        .card-body
+                            pre.bg-light.p-3.rounded= JSON.stringify(log.new_values, null, 2)
+
+                if log.error_message
+                    .card.mb-3.border-danger
+                        .card-header.bg-danger.text-white
+                            h5.mb-0 错误信息
+                        .card-body
+                            pre.text-danger= log.error_message
+
+            .col-md-4
+                if targetLogs && targetLogs.length > 0
+                    .card.mb-3
+                        .card-header
+                            h6.mb-0 同一目标的其他操作
+                        .list-group.list-group-flush
+                            each tl in targetLogs.slice(0, 10)
+                                a.list-group-item.list-group-item-action(href=`/system/auditLog/${tl.id}`)
+                                    .d-flex.justify-content-between
+                                        small.text-muted= tl.getActionTypeText()
+                                        small.text-muted= tl.created_at ? new Date(tl.created_at).toLocaleString('zh-CN') : '-'
+
+                if userLogs && userLogs.length > 0
+                    .card.mb-3
+                        .card-header
+                            h6.mb-0 该用户最近操作
+                        .list-group.list-group-flush
+                            each ul in userLogs.slice(0, 10)
+                                a.list-group-item.list-group-item-action(href=`/system/auditLog/${ul.id}`)
+                                    .d-flex.justify-content-between
+                                        small.text-muted= `${ul.getActionTypeText()} - ${ul.target_type || ''}`
+                                        small.text-muted= ul.created_at ? new Date(ul.created_at).toLocaleString('zh-CN') : '-'

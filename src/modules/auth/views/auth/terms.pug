@@ -1,0 +1,25 @@
+doctype html
+html(lang="zh-CN")
+    head
+        title= title || '注册'
+        meta(http-equiv="Content-Type" content="text/html; charset=utf-8")
+        meta(name="viewport" content="width=device-width, initial-scale=1")
+        link(rel="stylesheet" href="/npm/@fontsource/open-sans/index.css")
+        link(rel="stylesheet" href="/npm/overlayscrollbars/styles/overlayscrollbars.min.css")
+        link(rel="stylesheet" href="/npm/bootstrap-icons/font/bootstrap-icons.min.css")
+        link(rel="stylesheet" href="/npm/adminlte4/dist/css/adminlte.min.css")
+    body(class="login-page bg-body-secondary")
+        .container
+            .card
+                .card-header
+                    h3 注册协议 
+                    small 请阅读并同意注册协议
+
+                .card-body
+                    h4 注册协议内容
+
+
+                .card-footer
+                    p 请阅读并同意注册协议
+                        a(href="/auth/register") 继续注册。
+                    

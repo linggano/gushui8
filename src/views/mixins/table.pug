@@ -1,0 +1,142 @@
+//- src/shared/views/mixins/table.pug
+//- AdminLTE4 / Bootstrap 5 风格表格混入
+//-
+//- 参数:
+//-   title       - 表格标题（显示在 card-header）
+//-   columns     - 列配置数组: [{ title: '列名', field: '字段名', format: 'json|badge|date', width: '100px' }]
+//-   rows        - 数据行数组
+//-   actions     - 操作按钮配置: { create: 'url', edit: 'url', delete: 'url', show: 'url' }
+//-   extraActions - 额外操作按钮数组: [{ title: '按钮文本', href: 'url', class: 'btn-info', icon: 'bi bi-gear' }]
+//-   pagination  - 分页对象（可选）: { page, totalPages, total, limit }
+//-   options     - 可选配置: { searchable: true, striped: true, hover: true, responsive: true }
+//-
+//- 用法:
+//-   +dataTable('用户管理', columns, rows, actions, extraActions, pagination, options)
+
+mixin dataTable(title, columns, rows, actions = {}, extraActions = [], pagination = null, options = {})
+  - searchable = options.searchable !== false
+  - striped = options.striped !== false
+  - hover = options.hover !== false
+  - responsive = options.responsive !== false
+  - tableClass = 'table table-bordered align-middle mb-0' + (striped ? ' table-striped' : '') + (hover ? ' table-hover' : '')
+  - permissions = typeof userPermissions !== 'undefined' ? userPermissions : []
+  - hasCreatePerm = !actions.createPerm || permissions.includes(actions.createPerm)
+  - hasEditPerm = !actions.editPerm || permissions.includes(actions.editPerm)
+  - hasDeletePerm = !actions.deletePerm || permissions.includes(actions.deletePerm)
+  - hasShowPerm = !actions.showPerm || permissions.includes(actions.showPerm)
+  - hasActions = (hasShowPerm && actions.show) || (hasEditPerm && actions.edit) || (hasDeletePerm && actions.delete) || (extraActions && extraActions.length > 0)
+  - colspan = columns.length + 1 + (hasActions ? 1 : 0)
+  
+  .card
+    .card-header
+      h3.card-title
+        i.bi.bi-table.me-2
+        = title
+      
+      .card-tools
+        if actions && actions.create && hasCreatePerm
+          if actions.create === '#'
+            button.btn.btn-primary.btn-sm.rounded-pill(id='createBtn' type='button')
+              i.bi.bi-plus-lg.me-1
+              | 新增
+          else
+            a.btn.btn-primary.btn-sm.rounded-pill(id='createBtn' href=actions.create)
+              i.bi.bi-plus-lg.me-1
+              | 新增
+        
+        if searchable
+          form.d-inline-flex.gap-2.ms-2(method='GET', action='')
+            input.form-control.form-control-sm(type='text', name='search', placeholder='搜索...', value=query && query.search)
+            button.btn.btn-outline-primary.btn-sm(type='submit')
+              i.bi.bi-search.me-1
+            - const resetUrl = (pagination && pagination.baseUrl) || baseUrl || ''
+            a.btn.btn-outline-secondary.btn-sm(href=resetUrl title='重置')
+              i.bi.bi-arrow-counterclockwise.me-1
+    
+    .card-body(class=responsive ? 'table-responsive p-0' : 'p-0')
+      table(class=tableClass)
+        thead(class='table-light')
+          tr
+            th(style='width: 60px') #
+            each col in columns
+              th(style=col.width ? 'width: ' + col.width : '')= col.title
+            if hasActions
+              th(style='width: 140px') 操作
+        
+        tbody
+          if !rows || rows.length === 0
+            tr
+              td(colspan=colspan class='text-center text-muted py-5')
+                i.bi.bi-inbox.display-4.d-block.mb-2
+                | 暂无数据
+          else
+            each item, idx in rows
+              tr
+                td.text-muted= (pagination && pagination.page && pagination.limit ? (pagination.page - 1) * pagination.limit + idx + 1 : idx + 1)
+                
+                each col in columns
+                  td
+                    - const cellValue = item[col.field]
+                    - const isJson = col.format === 'json'
+                    - const isBadge = col.format === 'badge'
+                    - const isDate = col.format === 'date'
+                    - const hasRender = col.render
+                    if isJson
+                      if cellValue && cellValue !== '-'
+                        - const displayValue = typeof cellValue === 'object' ? JSON.stringify(cellValue) : cellValue
+                        code.small= displayValue
+                      else
+                        span.text-muted -
+                    if isBadge
+                      if cellValue
+                        span.badge.text-bg-primary= cellValue
+                      else
+                        span.text-muted -
+                    if isDate
+                      if cellValue
+                        - const ts = (typeof cellValue === 'number' && cellValue < 10000000000) ? cellValue * 1000 : cellValue
+                        - const d = new Date(ts)
+                        - const formatted = !isNaN(d.getTime()) ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') : cellValue
+                        small.text-muted= formatted
+                      else
+                        span.text-muted -
+                    if hasRender
+                      != col.render(item)
+                    if !isJson && !isBadge && !isDate && !hasRender
+                      = cellValue !== undefined && cellValue !== null ? cellValue : '-'
+                
+                if hasActions
+                  td
+                    .btn-group.btn-group-sm(role='group')
+                      if actions && actions.show && hasShowPerm
+                        - showUrl = actions.show.replace(/:id/g, item.id).replace(/:name/g, encodeURIComponent(item.name))
+                        a.btn.btn-info(href=showUrl title='查看')
+                          i.bi.bi-eye
+                      
+                      if actions && actions.edit && hasEditPerm
+                        - editUrl = actions.edit.replace(/:id/g, item.id).replace(/:name/g, encodeURIComponent(item.name))
+                        a.btn.btn-warning(href=editUrl title='编辑' data-row-data=encodeURIComponent(JSON.stringify(item)))
+                          i.bi.bi-pencil
+                      
+                      if actions && actions.delete && hasDeletePerm
+                        - deleteUrl = actions.delete.replace(/:id/g, item.id).replace(/:name/g, encodeURIComponent(item.name))
+                        button.btn.btn-danger(type='button' title='删除' data-delete-href=deleteUrl class='btn-delete')
+                          i.bi.bi-trash
+                      
+                      if extraActions
+                        each extra in extraActions
+                          - if (!extra.perm || permissions.includes(extra.perm))
+                            - extraHref = extra.href.replace(/:id/g, item.id).replace(/:name/g, encodeURIComponent(item.name))
+                            a.btn(class=extra.class || 'btn-secondary' href=extraHref title=extra.title data-row-data=encodeURIComponent(JSON.stringify(item)))
+                              if extra.icon
+                                i(class=extra.icon)
+    
+    if pagination && pagination.totalPages > 1
+      .card-footer
+        include ./pagination.pug
+        +pagination(pagination, pagination.baseUrl || baseUrl || '', query || {}, { spread: 2 })
+
+//- 简化版表格混入（不带搜索，支持可选分页）
+//- 用法: +simpleTable('标题', columns, rows, actions, extraActions, pagination)
+mixin simpleTable(title, columns, rows, actions = {}, extraActions = [], pagination = null)
+  +dataTable(title, columns, rows, actions, extraActions, pagination, { searchable: false })

@@ -1,0 +1,360 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/table.pug
+include /mixins/modal.pug
+include /mixins/input_field.pug
+
+block append styles
+    link(rel="stylesheet", href="/npm/select2/dist/css/select2.min.css")
+    link(rel="stylesheet", href="/npm/select2-bootstrap-5-theme/dist/select2-bootstrap-5-theme.min.css")
+
+block content
+    .row
+        .col-sm-12 
+            +dataTable(
+                '权限管理',
+                [
+                    { title: '权限名称', field: 'name' },
+                    { title: '权限描述', field: 'description' },
+                    { title: '规则名', field: 'rule_name' },
+                    { title: '权限数据', field: 'data', format: 'json' },
+                ],
+                permissions,
+                {
+                    create: '#',
+                    edit: '#',
+                    delete: '/system/rbac/permissions/:name',
+                },
+                [
+                    { title: '权限路由分配', href: '/system/rbac/permissions/assign-routes/:name', class: 'btn-info', icon: 'bi bi-gear' },
+                ],
+                pagination
+            )
+
+    //- 权限创建/编辑模态框
+    +modal('permissionModal', { title: '新增权限', size: 'lg', icon: 'bi-shield-check' })
+        input#type(type="hidden" name="type" value="2")
+        .row
+            .col-md-12
+                +formField('name', { label: '权限名', required: true, placeholder: '请输入权限名，如：User.Create', pattern: '[a-zA-Z0-9_.\u4e00-\u9fa5]{2,64}' })
+            .col-md-6
+                +formField('description', { label: '权限描述', placeholder: '请输入权限描述，如：创建文章权限' })
+            .col-md-6
+                .form-group.mb-3
+                    label.form-label(for="rule_name")
+                        i.bi.bi-rulers.me-2
+                        | 规则名
+                    select.form-select#rule_name(name="rule_name" style="width: 100%;")
+                        option(value="") 无规则
+                        each rule in rules || []
+                            option(value=rule.name)= rule.name
+            .col-md-12
+                +formField('data', { label: '权限数据', type: 'textarea', rows: 3, placeholder: '{"key": "value"}', helpText: '可选字段，用于存储权限相关的额外数据' })
+
+
+block prepend scripts
+    script(src="/npm/jquery/dist/jquery.min.js", nonce=nonce)
+    
+block append scripts
+    script(src="/npm/select2/dist/js/select2.min.js", nonce=nonce)
+    script(nonce=nonce).
+        $(function() {
+            var csrfToken = $('meta[name="csrf-token"]').attr('content');
+            var modalEl = document.getElementById('permissionModal');
+            var modal = new bootstrap.Modal(modalEl);
+            var $modal = $('#permissionModal');
+            var $submitBtn = $('#permissionModalSubmitBtn');
+            var $deleteBtn = $('#deleteBtn');
+            var currentPermissionName = '';
+
+            // 初始化 select2
+            $('#rule_name').select2({
+                theme: 'bootstrap-5',
+                placeholder: '请选择规则名',
+                allowClear: true,
+                width: '100%'
+            });
+
+            // Toast 提示函数
+            function showToast(message, type) {
+                type = type || 'info';
+                var $toast = $('<div class="toast align-items-center text-bg-' + type + ' border-0 position-fixed" ' +
+                    'style="top: 20px; right: 20px; z-index: 9999;">' +
+                    '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+                    '</div></div>');
+                $('body').append($toast);
+                var toast = new bootstrap.Toast($toast[0], { delay: 3000 });
+                toast.show();
+                $toast.on('hidden.bs.toast', function() { $(this).remove(); });
+            }
+
+            // 删除确认 Toast（带确认/取消按钮）
+            function showConfirmToast(message, onConfirm) {
+                var $toast = $('<div class="toast border-0 position-fixed" ' +
+                    'style="top: 20px; right: 20px; z-index: 9999;">' +
+                    '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                    '<div class="d-flex align-items-center me-2">' +
+                    '<button type="button" class="btn btn-sm btn-danger me-1 confirm-yes-btn">确定</button>' +
+                    '<button type="button" class="btn btn-sm btn-secondary confirm-no-btn">取消</button>' +
+                    '</div></div></div>');
+                $('body').append($toast);
+                var toast = new bootstrap.Toast($toast[0], { autohide: false });
+                toast.show();
+                $toast.find('.confirm-no-btn').on('click', function() {
+                    toast.hide();
+                    $toast.on('hidden.bs.toast', function() { $(this).remove(); });
+                });
+                $toast.find('.confirm-yes-btn').on('click', function() {
+                    toast.hide();
+                    $toast.on('hidden.bs.toast', function() { $(this).remove(); });
+                    if (onConfirm) onConfirm();
+                });
+            }
+
+            // 新增按钮点击
+            $(document).on('click', '#createBtn', function(e) {
+                e.preventDefault();
+                openCreateModal();
+            });
+
+            // 打开新增模态框
+            function openCreateModal() {
+                $('#permissionModalLabel').html('<i class="bi bi-plus me-2"></i>新增权限');
+                $modal.data('action', '/system/rbac/permissions');
+                $('#name').val('');
+                $('#description').val('');
+                $('#rule_name').val('').trigger('change');
+                $('#data').val('');
+                $submitBtn.html('<i class="bi bi-save me-1"></i>保存');
+                $deleteBtn.hide();
+                currentPermissionName = '';
+                
+                // 启用权限名字段
+                $('#name').prop('disabled', false);
+                
+                modal.show();
+            }
+
+            // 编辑按钮点击
+            $(document).on('click', '.btn-warning[title="编辑"], .btn-warning[title="编辑"] *', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this).closest('.btn-warning');
+                var rowDataAttr = $btn.attr('data-row-data');
+                if (!rowDataAttr) {
+                    showToast('无法获取权限数据', 'warning');
+                    return;
+                }
+                
+                var row = JSON.parse(decodeURIComponent(rowDataAttr));
+                openEditModal(row);
+            });
+
+            // 打开编辑模态框
+            function openEditModal(row) {
+                const name = row.name;
+                const description = row.description;
+                const ruleName = row.rule_name;
+                const data = row.data;
+                currentPermissionName = name;
+                
+                $('#permissionModalLabel').html('<i class="bi bi-pencil me-2"></i>编辑权限');
+                $modal.data('action', '/system/rbac/permissions/' + encodeURIComponent(name));
+                
+                $('#name').val(name);
+                $('#description').val(description !== '-' ? description : '');
+                $('#rule_name').val(ruleName && ruleName !== '-' ? ruleName : '').trigger('change');
+                
+                // 处理 data 字段
+                let dataValue = '';
+                if (data && data !== '-' && data !== null && data !== undefined) {
+                    if (typeof data === 'object') {
+                        dataValue = JSON.stringify(data, null, 2);
+                    } else {
+                        dataValue = String(data);
+                    }
+                }
+                $('#data').val(dataValue);
+                
+                $submitBtn.html('<i class="bi bi-save me-1"></i>更新');
+                $deleteBtn.show().off('click').on('click', function() {
+                    deletePermission(name);
+                });
+                
+                // 禁用权限名字段（编辑时不允许修改名称）
+                $('#name').prop('disabled', true);
+                
+                modal.show();
+            }
+
+            // 删除权限函数
+            function deletePermission(name) {
+                if (!name) {
+                    showToast('无法获取权限名称', 'warning');
+                    return;
+                }
+
+                showConfirmToast('确定要删除权限：' + name + ' 吗？此操作不可撤销。', function() {
+                    doDeletePermission(name);
+                });
+            }
+
+            function doDeletePermission(name) {
+                $.ajax({
+                    url: '/system/rbac/permissions/' + encodeURIComponent(name),
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showToast('权限删除成功', 'success');
+                            modal.hide();
+                            setTimeout(() => {
+                                location.reload();
+                            }, 500);
+                        } else {
+                            showToast(response.message || '删除失败', 'danger');
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON?.message || '请求失败，请稍后再试';
+                        showToast(errorMsg, 'danger');
+                    }
+                });
+            }
+
+            // 解析JSON数据
+            function parseJSON(jsonStr) {
+                try {
+                    return jsonStr ? JSON.parse(jsonStr) : null;
+                } catch (e) {
+                    return jsonStr;
+                }
+            }
+
+            // 提交按钮点击
+            $submitBtn.on('click', function() {
+                // 简单验证
+                if (!$('#name').val()) {
+                    showToast('权限名不能为空', 'warning');
+                    return;
+                }
+
+                const formData = {
+                    name: $('#name').val(),
+                    description: $('#description').val(),
+                    rule_name: $('#rule_name').val() || null
+                };
+                
+                const dataValue = parseJSON($('#data').val());
+                if (dataValue !== null) {
+                    formData.data = dataValue;
+                }
+
+                const url = $modal.data('action');
+                const isUpdate = url.includes('/system/rbac/permissions/') && currentPermissionName;
+                const method = isUpdate ? 'PUT' : 'POST';
+                
+                $submitBtn.prop('disabled', true).html('<i class="bi bi-spinner-spin me-1"></i>保存中...');
+                
+                $.ajax({
+                    url: url,
+                    type: method,
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    data: JSON.stringify(formData),
+                    success: function(response) {
+                        if (response.success) {
+                            showToast(isUpdate ? '权限更新成功！' : '权限创建成功！', 'success');
+                            modal.hide();
+                            setTimeout(() => {
+                                location.reload();
+                            }, 500);
+                        } else {
+                            showToast(response.message || '操作失败', 'danger');
+                        }
+                    },
+                    error: function(xhr) {
+                        let errorMsg = '请求失败，请稍后再试';
+                        if (xhr.responseJSON) {
+                            if (xhr.responseJSON.message) {
+                                errorMsg = xhr.responseJSON.message;
+                            } else if (xhr.responseJSON.errors) {
+                                errorMsg = xhr.responseJSON.errors.map(e => e.msg).join(', ');
+                            }
+                        } else if (xhr.responseText) {
+                            try {
+                                const resp = JSON.parse(xhr.responseText);
+                                if (resp.message) errorMsg = resp.message;
+                                else if (resp.errors) errorMsg = resp.errors.map(e => e.msg).join(', ');
+                            } catch (e) {
+                                // ignore
+                            }
+                        }
+                        showToast(errorMsg, 'danger');
+                    },
+                    complete: function() {
+                        $submitBtn.prop('disabled', false).html('<i class="bi bi-save me-1"></i>保存');
+                    }
+                });
+            });
+
+            // JSON 数据格式验证
+            $('#data').on('blur', function() {
+                const $input = $(this);
+                const value = $input.val().trim();
+                
+                if (!value) {
+                    $input.removeClass('is-invalid is-valid');
+                    return;
+                }
+                
+                try {
+                    JSON.parse(value);
+                    $input.removeClass('is-invalid').addClass('is-valid');
+                } catch (e) {
+                    $input.removeClass('is-valid').addClass('is-invalid');
+                    $input[0].setCustomValidity('请输入有效的JSON格式数据');
+                }
+            });
+
+            // 当模态框关闭时重置
+            $modal.on('hidden.bs.modal', function() {
+                $('#name').prop('disabled', false);
+                $deleteBtn.hide();
+            });
+
+            // 表格中的删除按钮点击
+            $(document).on('click', '.btn-delete', function(e) {
+                e.preventDefault();
+                
+                var url = $(this).data('delete-href');
+                var name = url.split('/').pop();
+
+                showConfirmToast('确定要删除权限 "' + name + '" 吗？此操作不可撤销。', function() {
+                    $.ajax({
+                        url: url,
+                        type: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                showToast('权限删除成功', 'success');
+                                location.reload();
+                            } else {
+                                showToast(response.message || '权限删除失败', 'danger');
+                            }
+                        },
+                        error: function(xhr) {
+                            const errorMsg = xhr.responseJSON?.message || '请求失败，请稍后再试';
+                            showToast(errorMsg, 'danger');
+                        }
+                    });
+                });
+            });
+        });

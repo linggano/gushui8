@@ -1,0 +1,115 @@
+//- src/shared/views/mixins/cards.pug
+//- AdminLTE4 / Bootstrap 5 风格卡片混入（参照 https://adminlte.io/themes/v4/widgets/cards.html）
+//-
+//- 一、+cardBasic(title, options, body, footer)
+//-   通用基础卡片
+//-   参数:
+//-     title      - 卡片标题（显示在 card-header）
+//-     options    - 可选配置对象:
+//-       {
+//-         id: '卡片ID',
+//-         class: '额外卡片CSS类',
+//-         icon: 'bi-box'          // 标题左侧图标
+//-         color: 'primary',       // card-primary / card-success 等
+//-         collapse: true,         // 显示收起按钮
+//-         remove: true,           // 显示移除按钮
+//-         maxBody: true,          // card-body 用 card-max-height
+//-         bodyClass: '额外body类',
+//-         headerTools: true       // 显示空的 card-tools
+//-         tools: [                // 自定义 header 工具按钮
+//-           { text: '新增', href: '/x/create', icon: 'bi-plus-lg', class: 'btn-primary' },
+//-           { text: '删除', type: 'submit', form: 'formId' },
+//-           { text: '展开', action: 'collapse', icon: 'bi-chevron-up' },
+//-           { text: '关闭', action: 'remove', icon: 'bi-x-lg' }
+//-         ]
+//-       }
+//-     body      - 卡片正文内容（Pug 块）
+//-     footer    - 卡片底部内容（Pug 块）
+//-
+//-   tools 每个按钮配置项:
+//-     text    - 按钮文字
+//-     icon    - Bootstrap Icons 类名，如 'bi-plus-lg'
+//-     href    - 链接地址（有则为 <a>，否则为 <button>）
+//-     class   - 按钮类名（默认 'btn-secondary'）
+//-     type    - button 的 type（'submit' 需要配 form 指向对应表单 id）
+//-     form    - 关联的外部表单 id（用于卡片外提交按钮）
+//-     action  - 'collapse' | 'remove'，渲染 AdminLTE 卡片工具切换按钮
+//-
+//- 用法:
+//-   +cardBasic('标题', { icon: 'bi-box', color: 'primary', tools: [{ text: '新增', href: '/x/create', icon: 'bi-plus-lg', class: 'btn-primary' }] })
+//-     p 正文内容
+//-     .alert.alert-info 更多内容
+//-
+//- 二、+infoBox(title, value, icon, color, options)
+//-   信息统计卡片（AdminLTE info-box / small-box 风格）
+//-   参数:
+//-     title     - 统计项标题，如 '员工总数'
+//-     value     - 显示数值
+//-     icon      - 图标类，如 'bi-people'
+//-     color     - 主题色，如 'primary|success|info|warning|danger'
+//-     options   - 可选: { href: '链接地址', footer: '底部说明文字' }
+
+mixin cardBasic(title, options = {})
+  - cardId = options.id || ''
+  - cardClass = options.class || ''
+  - cardColor = options.color ? 'card-' + options.color : ''
+  - cardIcon = options.icon || 'bi-box'
+  - bodyClass = options.maxBody ? ['card-body', 'card-max-height', options.bodyClass || ''].join(' ') : ['card-body', options.bodyClass || ''].join(' ')
+  
+  .card(class=[cardColor, cardClass].join(' ').trim(), id=cardId)
+    .card-header
+      h3.card-title
+        i.bi.me-2(class=cardIcon)
+        = title
+      if options.collapse || options.remove || options.headerTools || (options.tools && options.tools.length)
+        .card-tools
+          - var headerTools = options.tools || []
+          each tool in headerTools
+            if tool.action === 'collapse' || tool.action === 'remove'
+              button.btn.btn-tool(type='button', data-lte-toggle='card-' + tool.action)
+                if tool.icon
+                  i.bi(class=tool.icon)
+                else if tool.action === 'collapse'
+                  i.bi.bi-chevron-up
+                else
+                  i.bi.bi-x-lg
+            else if tool.href
+              a.btn.btn-sm(class=tool.class || 'btn-secondary', href=tool.href)
+                if tool.icon
+                  i.bi(class=tool.icon + ' me-1')
+                = tool.text
+            else
+              button.btn.btn-sm(class=tool.class || 'btn-secondary', type=tool.type || 'button', form=tool.form || null)
+                if tool.icon
+                  i.bi(class=tool.icon + ' me-1')
+                = tool.text
+          if options.collapse
+            button.btn.btn-tool(type='button', data-lte-toggle='card-collapse')
+              i.bi.bi-chevron-up
+          if options.remove
+            button.btn.btn-tool(type='button', data-lte-toggle='card-remove')
+              i.bi.bi-x-lg
+    
+    .card-body(class=bodyClass)
+      block
+    
+    if footer
+      .card-footer
+        block footer
+
+//- 信息统计卡片（竖排小盒子风格，类似 widgets/cards.html 中的 small-box）
+mixin infoBox(title, value, icon, color = 'primary', options = {})
+  - seg = color || 'primary'
+  - href = options.href || ''
+  - footerText = options.footerText || ''
+  a.card.card-info-box.text-decoration-none(href=href, class='text-bg-' + seg)
+    .card-body
+      .d-flex.justify-content-between.align-items-center
+        .card-info-box-text
+          h5.card-info-box-title.mb-0.text-white= title
+          span.card-info-box-value.fs-3.fw-bold.text-white= value
+        .card-info-box-icon.fs-1.text-white-50
+          i.bi(class=icon)
+      if footerText
+        .card-info-box-footer.mt-2.text-white-50
+          = footerText

@@ -1,0 +1,125 @@
+extends /layouts/adminlte4
+include /mixins/table.pug
+
+block content
+    .row
+        .col-sm-12
+            //- 使用原生 card 实现自定义操作列，因为 dataTable mixin 不支持自定义危险按钮
+            .card
+                .card-header
+                    h3.card-title
+                        i.bi.bi-people-fill.me-2
+                        | 在线会话管理
+                    .card-tools
+                        span.badge.bg-primary.me-2= '在线: ' + sessions.length + ' 人'
+                        button.btn.btn-sm.btn-outline-secondary.rounded-pill(type='button' onclick='location.reload()')
+                            i.bi.bi-arrow-clockwise.me-1
+                            | 刷新
+                .card-body.table-responsive.p-0
+                    table.table.table-bordered.table-striped.table-hover.align-middle.mb-0
+                        thead.table-light
+                            tr
+                                th(style='width: 140px') 会话ID
+                                th(style='width: 120px') 用户名
+                                th(style='width: 160px') 邮箱
+                                th 客户端
+                                th(style='width: 140px') 过期时间
+                                th(style='width: 200px') 用户状态
+                                th(style='width: 100px') 操作
+                        tbody
+                            if sessions.length === 0
+                                tr
+                                    td(colspan='7' class='text-center text-muted py-5')
+                                        i.bi.bi-inbox.display-4.d-block.mb-2
+                                        | 当前无在线会话
+                            else
+                                each s, idx in sessions
+                                    tr
+                                        td
+                                            code.small(title=s.sid)= s.sid.slice(-12)
+                                        td
+                                            if s.username
+                                                strong= s.username
+                                            else
+                                                span.text-muted 未登录
+                                        td= s.email || '—'
+                                        td
+                                            if s.userAgent
+                                                small.text-muted(title=s.userAgent)= s.userAgent.substring(0, 60) + (s.userAgent.length > 60 ? '...' : '')
+                                            else
+                                                span.text-muted —
+                                        td
+                                            if s.expired
+                                                small.text-muted= s.expired.toLocaleString('zh-CN')
+                                            else
+                                                span.text-muted —
+                                        td
+                                            if s.user
+                                                if s.userStatus === 0
+                                                    span.badge.text-bg-danger 已禁用
+                                                else if s.userStatus === 10
+                                                    span.badge.text-bg-success 正常
+                                                else
+                                                    span.badge.text-bg-secondary= s.userStatus || '未知'
+                                            else
+                                                span.badge.text-bg-secondary 匿名
+                                        td
+                                            button.btn.btn-sm.btn-outline-danger.btn-kick(
+                                                type='button'
+                                                data-sid=s.sid
+                                                data-username=s.username || '未登录用户'
+                                                title='强制下线'
+                                            )
+                                                i.bi.bi-box-arrow-right
+
+block append scripts
+    script(nonce=nonce).
+        document.addEventListener('DOMContentLoaded', function() {
+            var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            function showToast(message, type) {
+                type = type || 'info';
+                var toastEl = document.createElement('div');
+                toastEl.className = 'toast align-items-center text-bg-' + type + ' border-0 position-fixed';
+                toastEl.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+                toastEl.innerHTML = '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+                document.body.appendChild(toastEl);
+                var toast = new bootstrap.Toast(toastEl, { delay: 2000 });
+                toast.show();
+                toastEl.addEventListener('hidden.bs.toast', function() { toastEl.remove(); });
+            }
+
+            document.querySelectorAll('.btn-kick').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var sid = this.getAttribute('data-sid');
+                    var username = this.getAttribute('data-username');
+
+                    if (!confirm('确定要强制下线「' + username + '」吗？\\n该用户将被立即登出。')) return;
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('DELETE', '/system/sessions/' + encodeURIComponent(sid), true);
+                    xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+                    xhr.setRequestHeader('Accept', 'application/json');
+
+                    xhr.onload = function() {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            var resp;
+                            try { resp = JSON.parse(xhr.responseText); } catch(e) { resp = {}; }
+                            showToast(resp.message || '已剔除该会话', 'success');
+                            setTimeout(function() { location.reload(); }, 800);
+                        } else {
+                            var err;
+                            try { err = JSON.parse(xhr.responseText); } catch(e) { err = { message: '请求失败' }; }
+                            showToast(err.message || '剔除失败', 'danger');
+                        }
+                    };
+
+                    xhr.onerror = function() {
+                        showToast('网络请求失败', 'danger');
+                    };
+
+                    xhr.send();
+                });
+            });
+        });

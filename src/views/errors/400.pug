@@ -1,0 +1,14 @@
+extends /layouts/adminlte4.pug
+
+block content
+    .content.d-flex.flex-column.align-items-center.justify-content-center.py-5(min-height='60vh')
+        .text-center
+            h1.text-primary.fw-bold.mb-0(style='font-size: 8rem; line-height: 1;') 400
+            h3.mt-3.mb-2
+                i.bi.bi-exclamation-circle.me-2
+                | 请求有误
+            p.text-muted.mb-4= message || '您提交的请求格式有误，请检查后重试'
+            .d-flex.gap-2.justify-content-center
+                button.btn.btn-primary(type='button' onclick='history.back()')
+                    i.bi.bi-arrow-left.me-1
+                    | 返回上一页

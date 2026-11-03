@@ -1,0 +1,49 @@
+doctype html
+html(lang="zh-CN")
+    head
+        title= title || '错误'
+        meta(http-equiv="Content-Type" content="text/html; charset=utf-8")
+        meta(name="viewport" content="width=device-width, initial-scale=1")
+        link(rel="stylesheet" href="/npm/@fontsource/open-sans/index.css")
+        link(rel="stylesheet" href="/npm/bootstrap-icons/font/bootstrap-icons.min.css")
+        link(rel="stylesheet" href="/npm/bootstrap/dist/css/bootstrap.min.css")
+    body(class="bg-body-secondary")
+        - const errorStatus = code || error.statusCode || 500
+        - const errorInfo = { 400: { icon: 'bi-exclamation-triangle', color: 'text-warning', title: '请求错误' }, 401: { icon: 'bi-unlock', color: 'text-warning', title: '未授权' }, 403: { icon: 'bi-shield-lock', color: 'text-warning', title: '禁止访问' }, 404: { icon: 'bi-exclamation-circle', color: 'text-muted', title: '页面未找到' }, 405: { icon: 'bi-x-circle', color: 'text-danger', title: '方法不允许' }, 408: { icon: 'bi-clock', color: 'text-warning', title: '请求超时' }, 429: { icon: 'bi-speedometer2', color: 'text-danger', title: '请求过多' }, 500: { icon: 'bi-gear', color: 'text-danger', title: '服务器错误' }, 502: { icon: 'bi-arrow-repeat', color: 'text-danger', title: '网关错误' }, 503: { icon: 'bi-tools', color: 'text-warning', title: '服务不可用' } }
+        - const errorDisplay = errorInfo[errorStatus] || { icon: 'bi-x-octagon', color: 'text-danger', title: '发生错误' }
+
+        .container-fluid
+            .row.justify-content-center.align-items-center.min-vh-100
+                .col-12.col-sm-10.col-md-8.col-lg-6.col-xl-5
+                    .card.shadow.border-0.rounded-4
+                        .card-body.p-5.text-center
+                            .mb-4
+                                .display-1.fw-bold(class=errorDisplay.color)
+                                    i.bi(class=errorDisplay.icon)
+                            
+                            h2.display-5.fw-bold.mb-3= errorStatus
+                            h5.fw-semibold.mb-3= errorDisplay.title
+                            p.text-muted.mb-4= message
+                            
+                            .d-grid.gap-2.d-md-block
+                                a.btn.btn-primary.btn-lg.px-4.me-md-2.rounded-pill(href='/')
+                                    i.bi.bi-house-door.me-2
+                                    | 返回首页
+                                a.btn.btn-outline-secondary.btn-lg.px-4.rounded-pill(href=referer || 'javascript:history.back()')
+                                    i.bi.bi-arrow-left.me-2
+                                    | 返回上一页
+                            
+                            if error && error.stack
+                                .mt-4.text-start
+                                    .accordion#stackAccordion
+                                        .accordion-item
+                                            h2.accordion-header
+                                                button.accordion-button.collapsed(type='button' data-bs-toggle='collapse' data-bs-target='#collapseOne' aria-expanded='false')
+                                                    i.bi.bi-bug.me-2
+                                                    | 错误堆栈（开发环境）
+                                            .accordion-collapse.collapse(aria-labelledby='headingOne' data-bs-parent='#stackAccordion')
+                                                .accordion-body
+                                                    pre.mb-0.bg-light.p-3.rounded
+                                                        code.text-danger.small= error.stack
+
+        script(src="/npm/bootstrap/dist/js/bootstrap.bundle.min.js")

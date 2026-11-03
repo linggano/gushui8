@@ -1,0 +1,537 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/table.pug
+include /mixins/modal.pug
+include /mixins/input_field.pug
+
+block append styles
+  link(rel='stylesheet' href='/npm/datatables.net-bs5/css/dataTables.bootstrap5.min.css')
+  style.
+    .route-table { font-size: 13px; }
+    .route-table td { vertical-align: middle; }
+    .method-badge {
+      font-family: monospace; font-weight: bold;
+      padding: 2px 6px; margin: 1px;
+      border-radius: 3px; display: inline-block; font-size: 11px;
+    }
+    .method-GET    { background: #0d6efd; color: #fff; }
+    .method-POST   { background: #198754; color: #fff; }
+    .method-PUT    { background: #fd7e14; color: #fff; }
+    .method-DELETE { background: #dc3545; color: #fff; }
+    .method-PATCH  { background: #6f42c1; color: #fff; }
+    .method-OTHER  { background: #6c757d; color: #fff; }
+    .route-path { font-family: 'Consolas', 'Monaco', monospace; color: #333; }
+    .route-exists { opacity: 0.65; }
+    .sticky-toolbar {
+      position: sticky; top: 0; z-index: 100;
+      background: #fff; padding: 10px 0;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .method-not-in-db { text-decoration: line-through; opacity: 0.5; }
+
+block content
+  //- ============================================================
+  //- 已登记路由（原有 dataTable）
+  //- ============================================================
+  .row
+    .col-md-12.mb-3
+      +dataTable(
+        '路由管理',
+        [
+          { title: '路由名称', field: 'name' },
+          { title: '路由描述', field: 'description' },
+          { title: '路由数据', field: 'data', format: 'json' },
+        ],
+        routeRows,
+        {
+          create: '#',
+          edit: '#',
+          delete: '/system/rbac/routes/:name',
+        },
+        [],
+        pagination
+      )
+
+  //- ============================================================
+  //- 统计卡片
+  //- ============================================================
+  .row
+    .col-4
+      .info-box.shadow
+        span.info-box-icon.text-bg-info.shadow-sm
+          i.bi.bi-signpost-split
+        .info-box-content
+          span.info-box-text 扫描到的路径数
+          span.info-box-number= stats.total
+
+    .col-4
+      .info-box.shadow
+        span.info-box-icon.text-bg-success.shadow-sm
+          i.bi.bi-check-circle
+        .info-box-content
+          span.info-box-text 已登记的路径数
+          span.info-box-number= stats.routes
+
+    .col-4
+      .info-box.shadow
+        span.info-box-icon.text-bg-warning.shadow-sm
+          i.bi.bi-plus-circle
+        .info-box-content
+          span.info-box-text 待添加的路径数
+          span.info-box-number= stats.new
+
+  //- ============================================================
+  //- 扫描结果（支持勾选提交）
+  //- ============================================================
+  form#scanForm(action='/system/rbac/routes/scan-save' method='POST')
+    input(type='hidden' name='_csrf' value=csrfToken)
+    .row
+      .col-md-12
+        .card
+          .card-header
+            .d-flex.justify-content-between.align-items-center
+              h3.card-title
+                i.bi.bi-search.me-1
+                |  扫描到的路由
+              .card-tools
+                button.btn.btn-primary.btn-sm(type='submit')
+                  i.bi.bi-save.me-1
+                  |  提交选中的路由
+
+          .card-body.p-0
+            //- 工具栏
+            .sticky-toolbar.px-3
+              .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
+                .form-check
+                  input.form-check-input#checkAll(type='checkbox')
+                  label.form-check-label(for='checkAll')
+                    strong 全选
+                .d-flex.align-items-center.gap-2
+                  .text-muted
+                    span#selectedCount 0
+                    |  条已选中
+
+            .table-responsive
+              table#scanTable.table.table-bordered.table-hover.route-table.mb-0
+                thead.table-light
+                  tr
+                    th(style='width: 50px') 选择
+                    th(style='width: 220px') 方法
+                    th 路径 (Name)
+                    th(style='width: 130px') 状态
+                tbody
+                  each route in scanRows
+                    tr(class=route.fullyExists ? 'route-exists' : '')
+                        td.text-center
+                          input.form-check-input.scan-checkbox(
+                            type='checkbox'
+                            value=route.path
+                            checked=route.fullyExists
+                            data-path=route.path
+                            data-methods=JSON.stringify(route.methods)
+                          )
+                        td
+                          each m in route.methods
+                            - const inDb = route.existingMethods.includes(m)
+                            - const cls = ['GET','POST','PUT','DELETE','PATCH'].includes(m) ? m : 'OTHER'
+                            span.badge.method-badge(
+                              class=`method-${cls} ${inDb ? '' : 'method-not-in-db'}`
+                              title=inDb ? '已在数据库' : '未在数据库'
+                            )= m
+                        td
+                          code.route-path= route.path
+                        td
+                          if route.fullyExists
+                            span.badge.bg-success
+                              i.bi.bi-check.me-1
+                              |  已添加
+                          else if route.existingMethods.length > 0
+                            span.badge.bg-warning 部分添加
+                          else
+                            span.badge.bg-secondary 未添加
+
+          .card-footer
+            .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
+              .btn-group
+                button.btn.btn-primary(type='submit')
+                  i.bi.bi-save.me-1
+                  |  提交选中的路由
+                a.btn.btn-secondary(href='/system/rbac/routes')
+                  i.bi.bi-arrow-clockwise.me-1
+                  |  刷新
+
+  //- ============================================================
+  //- 新增/编辑模态框
+  //- ============================================================
+  +modal('routeModal', { title: '新增路由', size: 'lg', icon: 'bi-link' })
+    input#type(type='hidden' name='type' value='3')
+    .row
+      .col-md-6
+        +formField('name', { label: '路由名称', required: true, placeholder: '请输入路由名称', icon: 'bi-fonts' })
+      .col-md-6
+        +formField('description', { label: '路由描述', placeholder: '请输入路由描述', icon: 'bi-file-text' })
+      .col-md-12
+        +formField('data', { label: '路由数据', placeholder: '请输入HTTP方法：{"methods": ["GET", "POST"]}', icon: 'bi-link' })
+
+block prepend scripts
+  script(src='/npm/jquery/dist/jquery.min.js' nonce=nonce)
+
+block append scripts
+  script(src='/npm/datatables.net/js/dataTables.min.js' nonce=nonce)
+  script(src='/npm/datatables.net-bs5/js/dataTables.bootstrap5.min.js' nonce=nonce)
+  script(nonce=nonce).
+    $(function () {
+      var csrfToken = $('meta[name="csrf-token"]').attr('content');
+      var $modal = $('#routeModal');
+      var modal = new bootstrap.Modal(document.getElementById('routeModal'));
+      var $submitBtn = $('#routeModalSubmitBtn');
+      var $deleteBtn = $('#deleteBtn');
+      var currentRouteName = '';
+
+      // ==========================================================
+      // Toast 提示
+      // ==========================================================
+      function showToast(message, type) {
+        type = type || 'info';
+        var $toast = $(
+          '<div class="toast align-items-center text-bg-' + type + ' border-0 position-fixed" ' +
+          'style="top: 20px; right: 20px; z-index: 9999;">' +
+          '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+          '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+          '</div></div>'
+        );
+        $('body').append($toast);
+        new bootstrap.Toast($toast[0], { delay: 3000 }).show();
+        $toast.on('hidden.bs.toast', function () { $(this).remove(); });
+      }
+
+      // ==========================================================
+      // 扫描结果：DataTables / 全选 / 计数 / 提交
+      // ==========================================================
+      var scanTable = null;
+      var selectedRoutes = {};  // 持久化选中状态：{ path: { path, methods } }
+
+      try {
+        scanTable = $('#scanTable').DataTable({
+          responsive: true,
+          order: [],
+          pageLength: 10,
+          lengthMenu: [10, 25, 50],
+          language: {
+            lengthMenu: '每页显示 _MENU_ 条',
+            zeroRecords: '未扫描到任何路由',
+            info: '显示 _START_ 到 _END_ 条，共 _TOTAL_ 条',
+            infoEmpty: '显示 0 到 0 条，共 0 条',
+            infoFiltered: '（从 _MAX_ 条中筛选）',
+            search: '搜索:',
+            paginate: {
+              first: '‹‹',
+              previous: '‹',
+              next: '›',
+              last: '››'
+            }
+          }
+        });
+
+        // 表格绘制完成后恢复选中状态
+        $('#scanTable').on('draw.dt', function() {
+          restoreSelectionState();
+          updateCheckAllState();
+          updateScanCount();
+        });
+      } catch (err) {
+        scanTable = null;
+      }
+
+      // 恢复当前页的选中状态
+      function restoreSelectionState() {
+        $('.scan-checkbox').each(function() {
+          var path = $(this).data('path');
+          if (selectedRoutes[path]) {
+            $(this).prop('checked', true);
+          } else {
+            $(this).prop('checked', false);
+          }
+        });
+      }
+
+      // 更新全选框状态
+      function updateCheckAllState() {
+        var total = $('.scan-checkbox').length;
+        var checked = $('.scan-checkbox:checked').length;
+        $('#checkAll').prop('checked', total > 0 && checked === total);
+        $('#checkAll').prop('indeterminate', checked > 0 && checked < total);
+      }
+
+      $('#checkAll').on('change', function () {
+        var isChecked = $(this).prop('checked');
+        $('.scan-checkbox').each(function() {
+          var path = $(this).data('path');
+          var methods = $(this).data('methods') || ['GET'];
+          
+          if (isChecked) {
+            selectedRoutes[path] = { path: path, methods: methods };
+            $(this).prop('checked', true);
+          } else {
+            delete selectedRoutes[path];
+            $(this).prop('checked', false);
+          }
+        });
+        updateScanCount();
+      });
+
+      $(document).on('change', '.scan-checkbox', function () {
+        var path = $(this).data('path');
+        var methods = $(this).data('methods') || ['GET'];
+        
+        if ($(this).prop('checked')) {
+          selectedRoutes[path] = { path: path, methods: methods };
+        } else {
+          delete selectedRoutes[path];
+        }
+        
+        updateCheckAllState();
+        updateScanCount();
+      });
+
+      function updateScanCount() {
+        $('#selectedCount').text(Object.keys(selectedRoutes).length);
+      }
+      updateScanCount();
+
+      $('#scanForm').on('submit', function (e) {
+        e.preventDefault();
+
+        var routesArray = Object.values(selectedRoutes);
+        if (routesArray.length === 0) {
+          showToast('请至少选择一条路由', 'warning');
+          return false;
+        }
+
+        var submitBtn = $(this).find('button[type="submit"]');
+        var originalText = submitBtn.html();
+        submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split me-1"></i>保存中...');
+
+        $.ajax({
+          url: $(this).attr('action'),
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ routes: routesArray }),
+          headers: { 'X-CSRF-Token': csrfToken },
+          success: function (resp) {
+            showToast(resp.message || '路由保存成功', 'success');
+            setTimeout(function () { location.reload(); }, 1000);
+          },
+          error: function (xhr) {
+            var resp = xhr.responseJSON || {};
+            showToast(resp.message || '保存失败', 'danger');
+            submitBtn.prop('disabled', false).html(originalText);
+          }
+        });
+      });
+
+      // ==========================================================
+      // 新增
+      // ==========================================================
+      $(document).on('click', '#createBtn', function (e) {
+        e.preventDefault();
+        openCreateModal();
+      });
+
+      function openCreateModal() {
+        $('#routeModalLabel').html('<i class="bi bi-plus me-2"></i>新增路由');
+        $modal.data('action', '/system/rbac/routes');
+        $('#name').val('').prop('disabled', false);
+        $('#description').val('');
+        $('#data').val('');
+        $submitBtn.html('<i class="bi bi-save me-1"></i>保存');
+        $deleteBtn.hide();
+        currentRouteName = '';
+        modal.show();
+      }
+
+      // ==========================================================
+      // 编辑
+      // ==========================================================
+      $(document).on('click', '.btn-warning[title="编辑"], .btn-warning[title="编辑"] *', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $btn = $(this).closest('.btn-warning');
+        var rowDataAttr = $btn.attr('data-row-data');
+        if (!rowDataAttr) {
+          showToast('无法获取路由数据', 'warning');
+          return;
+        }
+        var row = JSON.parse(decodeURIComponent(rowDataAttr));
+        openEditModal(row.name, row.description, row.data);
+      });
+
+      function openEditModal(name, description, data) {
+        currentRouteName = name;
+        $('#routeModalLabel').html('<i class="bi bi-pencil me-2"></i>编辑路由');
+        $modal.data('action', '/system/rbac/routes/' + encodeURIComponent(name));
+        $('#name').val(name).prop('disabled', true);
+        $('#description').val(description !== '-' ? description : '');
+
+        var dataValue = '';
+        if (data && data !== '-' && data !== null && data !== undefined) {
+          dataValue = (typeof data === 'object')
+            ? JSON.stringify(data, null, 2)
+            : String(data);
+        }
+        $('#data').val(dataValue);
+
+        $submitBtn.html('<i class="bi bi-save me-1"></i>更新');
+        $deleteBtn.show().off('click').on('click', function () {
+          deleteRoute(name);
+        });
+        modal.show();
+      }
+
+      // ==========================================================
+      // 删除
+      // ==========================================================
+      function deleteRoute(name) {
+        if (!name) { showToast('无法获取路由名称', 'warning'); return; }
+        if (!confirm('确定要删除路由：' + name + ' 吗？此操作不可撤销。')) return;
+
+        // 将路径中的 / 替换为 URL 编码，避免双斜杠问题
+        var encodedName = encodeURIComponent(name);
+        $.ajax({
+          url: '/system/rbac/routes/' + encodedName,
+          type: 'DELETE',
+          headers: { 'X-CSRF-Token': csrfToken },
+          success: function (response) {
+            if (response.success) {
+              showToast('路由删除成功', 'success');
+              modal.hide();
+              setTimeout(function () { location.reload(); }, 500);
+            } else {
+              showToast(response.message || '删除失败', 'danger');
+            }
+          },
+          error: function (xhr) {
+            showToast(xhr.responseJSON?.message || '请求失败，请稍后再试', 'danger');
+          }
+        });
+      }
+
+      // ==========================================================
+      // 提交（新增/编辑）
+      // ==========================================================
+      $submitBtn.on('click', function () {
+        if (!$('#name').val()) {
+          showToast('路由名称不能为空', 'warning');
+          return;
+        }
+
+        var formData = {
+          name: $('#name').val(),
+          description: $('#description').val(),
+          data: parseJSON($('#data').val())
+        };
+
+        var url = $modal.data('action');
+        var isUpdate = url.includes('/system/rbac/routes/') && currentRouteName;
+        var method = isUpdate ? 'PUT' : 'POST';
+
+        $submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split me-1"></i>保存中...');
+
+        $.ajax({
+          url: url,
+          type: method,
+          contentType: 'application/json',
+          headers: { 'X-CSRF-Token': csrfToken },
+          data: JSON.stringify(formData),
+          success: function (response) {
+            if (response.success) {
+              showToast(isUpdate ? '路由更新成功！' : '路由创建成功！', 'success');
+              modal.hide();
+              setTimeout(function () { location.reload(); }, 500);
+            } else {
+              showToast(response.message || '操作失败', 'danger');
+            }
+          },
+          error: function (xhr) {
+            var errorMsg = '请求失败，请稍后再试';
+            if (xhr.responseJSON) {
+              if (xhr.responseJSON.message) {
+                errorMsg = xhr.responseJSON.message;
+              } else if (xhr.responseJSON.errors) {
+                errorMsg = xhr.responseJSON.errors.map(function (e) { return e.msg; }).join(', ');
+              }
+            }
+            showToast(errorMsg, 'danger');
+          },
+          complete: function () {
+            $submitBtn.prop('disabled', false).html('<i class="bi bi-save me-1"></i>保存');
+          }
+        });
+      });
+
+      // ==========================================================
+      // JSON 验证
+      // ==========================================================
+      $('#data').on('blur', function () {
+        var $input = $(this);
+        var value = $input.val().trim();
+        if (!value) {
+          $input.removeClass('is-invalid is-valid');
+          return;
+        }
+        try {
+          JSON.parse(value);
+          $input.removeClass('is-invalid').addClass('is-valid');
+          $input[0].setCustomValidity('');
+        } catch (e) {
+          $input.removeClass('is-valid').addClass('is-invalid');
+          $input[0].setCustomValidity('请输入有效的JSON格式数据');
+        }
+      });
+
+      // ==========================================================
+      // 模态框关闭重置
+      // ==========================================================
+      $modal.on('hidden.bs.modal', function () {
+        $('#name').prop('disabled', false);
+        $deleteBtn.hide();
+      });
+
+      // ==========================================================
+      // 表格删除按钮
+      // ==========================================================
+      $(document).on('click', '.btn-delete', function (e) {
+        e.preventDefault();
+        var url = $(this).data('delete-href');
+        var name = decodeURIComponent(url.split('/').pop());
+        if (!confirm('确定要删除路由 "' + name + '" 吗？此操作不可撤销。')) return;
+
+        $.ajax({
+          url: url,
+          type: 'DELETE',
+          headers: { 'X-CSRF-Token': csrfToken },
+          success: function (response) {
+            if (response.success) {
+              showToast('路由删除成功', 'success');
+              location.reload();
+            } else {
+              showToast(response.message || '路由删除失败', 'danger');
+            }
+          },
+          error: function (xhr) {
+            showToast(xhr.responseJSON?.message || '请求失败，请稍后再试', 'danger');
+          }
+        });
+      });
+
+      // ==========================================================
+      // 工具
+      // ==========================================================
+      function parseJSON(jsonStr) {
+        try {
+          return jsonStr ? JSON.parse(jsonStr) : null;
+        } catch (e) {
+          return jsonStr;
+        }
+      }
+    });

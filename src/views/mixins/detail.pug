@@ -1,0 +1,113 @@
+//- src/shared/views/mixins/detail.pug
+//- AdminLTE4 / Bootstrap 5 风格详情卡片混入
+//-
+//- 参数:
+//-   title       - 详情标题
+//-   backHref    - 返回链接地址
+//-   sections    - 区块配置数组:
+//-     {
+//-       title: '区块标题',
+//-       fields: [
+//-         { label: '标签', value: '值', type: 'badge|code|text|date|link', class: '额外CSS类' }
+//-       ],
+//-       colSpan: 6  // 每列占的宽度，默认6（两列布局）
+//-     }
+//-   actions     - 操作按钮配置:
+//-     {
+//-       buttons: [
+//-         { text: '按钮文字', href: '/url', class: 'btn btn-primary', icon: 'bi-plus-lg' },
+//-         { text: '提交', type: 'submit', form: 'formId', class: 'btn btn-success', icon: 'bi-send' }
+//-       ],
+//-       forms: [
+//-         { action: '/url', method: 'POST', fields: [...], buttons: [...] }
+//-       ]
+//-     }
+//-   alerts      - 提示信息数组:
+//-     { type: 'info|success|warning|danger', message: '提示内容', icon: 'bi-info-circle' }
+
+mixin detailCard(title, backHref, sections, actions, alerts)
+    .row
+        .col-md-12.mx-auto
+            .card
+                .card-header
+                    h3.card-title= title
+                    .card-tools
+                        if backHref
+                            a.btn.btn-sm.btn-outline-secondary.rounded-pill(href=backHref)
+                                i.bi.bi-arrow-left.me-1
+                                | 返回列表
+
+                .card-body
+                    each section, sectionIndex in sections
+                        h5.mb-3= section.title
+                        .row.mb-3
+                            - var colSpan = section.colSpan || 6
+                            each col, colIndex in section.columns
+                                .col-md-6
+                                    table.table.table-sm.table-borderless
+                                        each field in col.fields
+                                            tr
+                                                th(style="width: 120px")= field.label
+                                                td
+                                                    if field.type === 'badge'
+                                                        span.badge(class=field.class || 'bg-secondary')= field.value
+                                                    else if field.type === 'code'
+                                                        code= field.value
+                                                    else if field.type === 'date'
+                                                        = field.value
+                                                    else if field.type === 'link'
+                                                        a(href=field.href target="_blank")= field.value
+                                                    else
+                                                        = field.value || '—'
+
+                    // 操作按钮区域
+                    if actions
+                        .d-flex.gap-2.mt-4
+                            if actions.buttons
+                                each btn in actions.buttons
+                                    if btn.href
+                                        a.btn(class=btn.class || 'btn btn-primary', href=btn.href)
+                                            if btn.icon
+                                                i.bi(class=btn.icon).me-1
+                                            = btn.text
+                                    else if btn.type === 'submit'
+                                        form(method=btn.method || "POST" action=btn.action)
+                                            if btn.csrf !== false
+                                                input(type='hidden' name='_csrf' value=btn.csrfToken)
+                                            each hiddenField in (btn.hiddenFields || [])
+                                                input(type='hidden' name=hiddenField.name value=hiddenField.value)
+                                            button.btn(class=btn.class || 'btn btn-primary', type="submit")
+                                                if btn.icon
+                                                    i.bi(class=btn.icon).me-1
+                                                = btn.text
+
+                    // 表单操作区域（复杂表单）
+                    if actions && actions.forms
+                        each form in actions.forms
+                            form(method=form.method || "POST" action=form.action class="mt-3")
+                                input(type='hidden' name='_csrf' value=form.csrfToken)
+                                if form.fields
+                                    .row.g-2
+                                        each field in form.fields
+                                            if field.type === 'select'
+                                                .col-auto
+                                                    select.form-select(name=field.name required=field.required)
+                                                        each opt in field.options
+                                                            option(value=opt.value)= opt.label
+                                            else if field.type === 'text'
+                                                .col
+                                                    input.form-control(type="text" name=field.name placeholder=field.placeholder)
+                                if form.buttons
+                                    .col-auto
+                                        each btn in form.buttons
+                                            button.btn(class=btn.class || 'btn btn-primary', type=btn.type || "submit")
+                                                if btn.icon
+                                                    i.bi(class=btn.icon).me-1
+                                                = btn.text
+
+                    // 提示信息
+                    if alerts
+                        each alert in alerts
+                            .alert(class='alert-' + alert.type).mt-3
+                                i.bi(class=alert.icon || 'bi-info-circle').me-2
+                                | #{alert.message}

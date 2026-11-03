@@ -1,0 +1,361 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/table.pug
+include /mixins/modal.pug
+include /mixins/input_field.pug
+
+block content
+    .row
+        .col-md-12 
+            +dataTable(
+                '规则管理',
+                [
+                    { title: '规则名称', field: 'name' },
+                    { title: '规则描述', field: 'description' },
+                    { title: '规则数据', field: 'data', format: 'json' },
+                    { title: '创建时间', field: 'created_at', format: 'date' },
+                ],
+                rules.map(function(rule) {
+                    return {
+                        id: rule.name,
+                        name: rule.name,
+                        description: rule.description || '-',
+                        data: rule.data || null,
+                        created_at: rule.created_at
+                    };
+                }),
+                {
+                    create: '#',
+                    edit: '#',
+                    delete: '/system/rbac/rules/:name',
+                },
+                [],
+                pagination
+            )
+
+    +modal('ruleModal', { title: '新增规则', size: 'lg', icon: 'bi-plus' })
+        form#ruleForm(novalidate)
+            .row
+                .col-md-12
+                    +formField('name', { label: '规则名', required: true, placeholder: '请输入规则名，如：OwnRule', pattern: '[a-zA-Z0-9_]{2,50}' })
+                .col-md-12
+                    +formField('description', { label: '规则描述', required: false, placeholder: '请输入规则描述' })
+                .col-md-12
+                    .form-group.mb-3
+                        label.form-label(for="data")
+                            i.bi.bi-code.me-2
+                            | 规则数据 (JSON格式)
+                        textarea.form-control#data(name="data" rows="5" placeholder='{"key": "value"}')
+                        small.form-text.text-muted 可选字段，用于存储规则相关的额外数据
+
+block prepend scripts
+    script(src="/npm/jquery/dist/jquery.min.js", nonce=nonce)
+
+block append scripts
+    script(nonce=nonce).
+        $(function() {
+            var csrfToken = $('meta[name="csrf-token"]').attr('content');
+            var modalEl = document.getElementById('ruleModal');
+            var modal = new bootstrap.Modal(modalEl);
+            var $modal = $('#ruleModal');
+            var $submitBtn = $('#ruleModalSubmitBtn');
+            var $deleteBtn = $('#deleteBtn');
+            var currentRuleName = '';
+            
+            // Toast 提示函数
+            function showToast(message, type) {
+                type = type || 'info';
+                var $toast = $('<div class="toast align-items-center text-bg-' + type + ' border-0 position-fixed" ' +
+                    'style="top: 20px; right: 20px; z-index: 9999;">' +
+                    '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+                    '</div></div>');
+                $('body').append($toast);
+                var toast = new bootstrap.Toast($toast[0], { delay: 2000 });
+                toast.show();
+                $toast.on('hidden.bs.toast', function() { $(this).remove(); });
+            }
+            
+            // 解析JSON数据
+            function parseJSON(jsonStr) {
+                try {
+                    return jsonStr ? JSON.parse(jsonStr) : null;
+                } catch (e) {
+                    return jsonStr;
+                }
+            }
+            
+            // 格式化JSON数据
+            function formatJSON(data) {
+                if (!data) return '';
+                if (typeof data === 'string') {
+                    try {
+                        return JSON.stringify(JSON.parse(data), null, 2);
+                    } catch (e) {
+                        return data;
+                    }
+                } else if (typeof data === 'object') {
+                    return JSON.stringify(data, null, 2);
+                }
+                return String(data);
+            }
+            
+            // 新增按钮点击
+            $(document).on('click', '#createBtn', function(e) {
+                e.preventDefault();
+                openCreateModal();
+            });
+            
+            // 编辑按钮点击
+            $(document).on('click', '.btn-warning[title="编辑"], .btn-warning[title="编辑"] *', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this).closest('.btn-warning');
+                var rowDataAttr = $btn.attr('data-row-data');
+                if (!rowDataAttr) {
+                    showToast('无法获取规则数据', 'warning');
+                    return;
+                }
+                
+                var row = JSON.parse(decodeURIComponent(rowDataAttr));
+                openEditModal(row.name, row.description, row.data);
+            });
+            
+            // 打开新增模态框
+            function openCreateModal() {
+                $('#ruleModalLabel').html('<i class="bi bi-plus me-2"></i>新增规则');
+                $modal.data('action', '/system/rbac/rules');
+                $modal[0].classList.remove('was-validated');
+                $('#name').val('');
+                $('#description').val('');
+                $('#data').val('');
+                $submitBtn.html('<i class="bi bi-save me-1"></i>保存');
+                $deleteBtn.hide();
+                currentRuleName = '';
+                
+                // 启用规则名字段
+                $('#name').prop('disabled', false);
+                
+                modal.show();
+            }
+            
+            // 打开编辑模态框
+            function openEditModal(name, description, data) {
+                currentRuleName = name;
+                
+                $('#ruleModalLabel').html('<i class="bi bi-pencil me-2"></i>编辑规则');
+                $modal.data('action', '/system/rbac/rules/' + encodeURIComponent(name));
+                $modal[0].classList.remove('was-validated');
+                
+                $('#name').val(name);
+                $('#description').val(description || '');
+                $('#data').val(formatJSON(data));
+                
+                $submitBtn.html('<i class="bi bi-save me-1"></i>更新');
+                $deleteBtn.show().off('click').on('click', function() {
+                    deleteRule(name);
+                });
+                
+                // 禁用规则名字段（编辑时不允许修改名称）
+                $('#name').prop('disabled', true);
+                
+                modal.show();
+            }
+            
+            // 删除规则函数
+            function deleteRule(name) {
+                if (!name) {
+                    showToast('无法获取规则名', 'warning');
+                    return;
+                }
+                
+                if (!confirm(`确定要删除规则名：${currentRuleName} 的规则吗？此操作不可撤销。`)) {
+                    return;
+                }
+                
+                $.ajax({
+                    url: '/system/rbac/rules/' + encodeURIComponent(name),
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showToast('规则删除成功！', 'success');
+                            modal.hide();
+                            
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            showToast(response.message || '删除失败！', 'danger');
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON?.message || '请求失败，请稍后再试！';
+                        showToast(errorMsg, 'danger');
+                    }
+                });
+            }
+            
+            // 提交按钮点击
+            $submitBtn.on('click', function() {
+                // 验证规则名
+                if (!$('#name').val()) {
+                    showToast('规则名不能为空', 'warning');
+                    return;
+                }
+                
+                // 验证JSON数据格式（如果填写了的话）
+                const dataValue = $('#data').val().trim();
+                if (dataValue) {
+                    try {
+                        const parsedData = JSON.parse(dataValue);
+                        // 确保是对象而不是数组或其他类型
+                        if (typeof parsedData !== 'object' || parsedData === null || Array.isArray(parsedData)) {
+                            showToast('规则数据必须是JSON对象格式，例如：{"key": "value"}', 'warning');
+                            $('#data').addClass('is-invalid').removeClass('is-valid');
+                            $('#data')[0].setCustomValidity('规则数据必须是JSON对象格式');
+                            return;
+                        }
+                        $('#data').removeClass('is-invalid').addClass('is-valid');
+                        $('#data')[0].setCustomValidity('');
+                    } catch (e) {
+                        showToast('规则数据JSON格式不正确', 'warning');
+                        $('#data').addClass('is-invalid').removeClass('is-valid');
+                        return;
+                    }
+                }
+                
+                if (!$('#ruleForm')[0].checkValidity()) {
+                    $('#ruleForm').addClass('was-validated');
+                    return;
+                }
+                
+                const formData = {
+                    name: $('#name').val().trim(),
+                    description: $('#description').val().trim() || null
+                };
+                
+                // 只有当data字段有值时才添加到formData中
+                if (dataValue) {
+                    formData.data = JSON.parse(dataValue);
+                }
+                
+                const url = $modal.data('action');
+                const isUpdate = url.includes('/system/rbac/rules/') && currentRuleName;
+                const method = isUpdate ? 'PUT' : 'POST';
+                
+                $submitBtn.prop('disabled', true).html('<i class="bi bi-spinner-spin me-1"></i>保存中...');
+                
+                $.ajax({
+                    url: url,
+                    type: method,
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    data: JSON.stringify(formData),
+                    success: function(response) {
+                        if (response.success) {
+                            showToast(isUpdate ? '规则更新成功！' : '规则创建成功！', 'success');
+                            modal.hide();
+                            
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            showToast(response.message || '操作失败！', 'danger');
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON?.message || '请求失败，请稍后再试！';
+                        showToast(errorMsg, 'danger');
+                    },
+                    complete: function() {
+                        $submitBtn.prop('disabled', false).html('<i class="bi bi-save me-1"></i>保存');
+                    }
+                });
+            });
+            
+            // JSON 数据格式验证
+            $('#data').on('blur', function() {
+                const $input = $(this);
+                const value = $input.val().trim();
+                
+                if (!value) {
+                    $input.removeClass('is-invalid is-valid');
+                    $input[0].setCustomValidity('');
+                    return;
+                }
+                
+                try {
+                    const parsed = JSON.parse(value);
+                    
+                    // 验证必须是对象类型（JSON对象），不能是数组、字符串等
+                    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+                        $input.removeClass('is-valid').addClass('is-invalid');
+                        $input[0].setCustomValidity('规则数据必须是JSON对象格式，例如：{"key": "value"}');
+                    } else {
+                        $input.removeClass('is-invalid').addClass('is-valid');
+                        $input[0].setCustomValidity('');
+                    }
+                } catch (e) {
+                    $input.removeClass('is-valid').addClass('is-invalid');
+                    $input[0].setCustomValidity('请输入有效的JSON格式数据');
+                }
+            });
+            
+            // 实时验证（输入时清除错误状态）
+            $('#data').on('input', function() {
+                const $input = $(this);
+                if ($input.hasClass('is-invalid')) {
+                    $input.removeClass('is-invalid');
+                    $input[0].setCustomValidity('');
+                }
+            });
+            
+            // 当模态框关闭时重置
+            $modal.on('hidden.bs.modal', function() {
+                $('#name').prop('disabled', false);
+                $('#name').val('');
+                $('#data').val('');
+                $deleteBtn.hide();
+            });
+            
+            // 表格中的删除按钮点击
+            $('.btn-delete').on('click', function(e) {
+                e.preventDefault();
+                
+                var url = $(this).data('delete-href');
+                var item = $(this).closest('tr');
+                var name = url.split('/').pop();
+                
+                if (!confirm(`确定要删除名称为 "${name}" 的规则吗？此操作不可撤销。`)) {
+                    return;
+                }
+                
+                $.ajax({
+                    url: url,
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showToast('规则删除成功！', 'success');
+                            
+                            item.fadeOut(300, function() {
+                                $(this).remove();
+                            });
+                        } else {
+                            showToast(response.message || '规则删除失败！', 'danger');
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON?.message || '请求失败，请稍后再试！';
+                        showToast(errorMsg, 'danger');
+                    }
+                });
+            });
+        });

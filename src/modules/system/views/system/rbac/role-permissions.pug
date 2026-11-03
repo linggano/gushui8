@@ -1,0 +1,456 @@
+extends /layouts/adminlte4.pug
+
+include /mixins/detail.pug
+
+mixin treeNode(item, level)
+    - const hasChildren = item.children && item.children.length > 0;
+    - const isRole = item.type === 1;
+    - const isPermission = item.type === 2;
+    - const iconClass = isRole ? 'role' : (hasChildren ? 'folder' : 'file');
+    - const icon = isRole ? 'bi-people' : (hasChildren ? 'bi-folder2' : 'bi-file-earmark');
+    - const labelClass = isRole ? 'role-label' : 'permission-label';
+    - const desc = item.description || '';
+    .tree-node
+        .tree-node-content
+            if hasChildren
+                span.tree-toggle(data-toggle='tree')
+                    i.bi.bi-chevron-right
+            else
+                span(style='width:16px;margin-right:4px;display:inline-block;')
+            i.tree-icon.bi(class=icon)
+            span.tree-label(class=labelClass)= `${item.name}${desc ? ' - ' + desc : ''}`
+            button.btn.btn-sm.btn-outline-danger.btn-remove-child.ms-auto(
+                data-child-name=item.name
+                data-level=level
+                title='移除'
+            )
+                i.bi.bi-x-circle
+        if hasChildren
+            .tree-children
+                each child in item.children
+                    +treeNode(child, level + 1)
+
+block append styles
+    link(rel="stylesheet", href="/npm/select2/dist/css/select2.min.css")
+    link(rel="stylesheet", href="/npm/select2-bootstrap-5-theme/dist/select2-bootstrap-5-theme.min.css")
+    style.
+        .select2-container {
+            width: 100% !important;
+        }
+        #addPermissionArea {
+            border: 2px dashed #dee2e6 !important;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #addPermissionArea:hover {
+            background-color: #f8f9fa;
+            border-color: #adb5bd;
+        }
+        /* 树形结构样式 */
+        .tree-container {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .tree-search {
+            margin-bottom: 10px;
+        }
+        .tree-search .form-control {
+            font-size: 13px;
+        }
+        .tree-node {
+            position: relative;
+            padding-left: 20px;
+        }
+        .tree-node::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #dee2e6;
+        }
+        .tree-node:last-child::before {
+            bottom: auto;
+            height: 16px;
+        }
+        .tree-node-content {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 2px 0;
+        }
+        .tree-node-content::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            width: 12px;
+            height: 1px;
+            background: #dee2e6;
+        }
+        .tree-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            margin-right: 4px;
+            cursor: pointer;
+            color: #6c757d;
+            font-size: 12px;
+            user-select: none;
+        }
+        .tree-toggle:hover {
+            color: #0d6efd;
+        }
+        .tree-icon {
+            margin-right: 4px;
+            font-size: 14px;
+        }
+        .tree-icon.folder {
+            color: #ffc107;
+        }
+        .tree-icon.file {
+            color: #6c757d;
+        }
+        .tree-icon.role {
+            color: #0d6efd;
+        }
+        .tree-children {
+            display: none;
+            padding-left: 16px;
+        }
+        .tree-children.expanded {
+            display: block;
+        }
+        .tree-label {
+            cursor: default;
+        }
+        .tree-label.role-label {
+            color: #0d6efd;
+            font-weight: 500;
+        }
+        .tree-label.permission-label {
+            color: #198754;
+        }
+        .btn-remove-child {
+            opacity: 0;
+            transition: opacity 0.15s;
+            padding: 0 4px;
+            font-size: 12px;
+            line-height: 1;
+        }
+        .tree-node-content:hover .btn-remove-child {
+            opacity: 1;
+        }
+
+block content
+    if messages
+        if messages.success
+            .alert.alert-success.alert-dismissible.fade.show
+                | #{messages.success}
+                button.btn-close(type='button' data-bs-dismiss='alert')
+        if messages.error
+            .alert.alert-danger.alert-dismissible.fade.show
+                | #{messages.error}
+                button.btn-close(type='button' data-bs-dismiss='alert')
+
+
+    .row
+        .col-md-12.mb-2
+            .card
+                .card-header
+                    h3.card-title= `${role.name} 角色信息`
+                .card-body
+                    table.table.table-sm.table-borderless
+                        tr
+                            th(style="width: 220px") 角色名
+                            th(style="width: 220px") 描述
+                            th 规则
+                            th 数据
+                        tr
+                            td= role.name
+                            td= role.description
+                            td= role.rule_name || '暂无规则'
+                            td= role.data ? JSON.stringify(role.data) : '—'
+
+        .col-md-6
+            .card
+                .card-header.bg-success
+                    h3.card-title.text-white 已拥有的子项
+                .card-body(style='max-height: 400px; overflow-y: auto;' id='ownedChildrenArea')
+                    .tree-search
+                        .input-group.input-group-sm
+                            input.form-control#treeSearch(type='text' placeholder='关键字：')
+                            button.btn.btn-outline-secondary(type='button') 搜索
+                    .tree-container#ownedTree
+                        if childrenTree && childrenTree.length > 0
+                            each item in childrenTree
+                                +treeNode(item, 0)
+                        else
+                            p.text-muted 暂无子项
+
+        .col-md-6
+            .card
+                .card-header.bg-info
+                    h3.card-title 角色与权限
+                .card-body(style='max-height: 500px; overflow-y: auto;')
+                    - const grouped = { 1: [], 2: [], 3: [] };
+                    // 排除敏感角色 super_admin，不进入角色权限分配列表
+                    - const visibleTree = tree.filter(t => t.name !== 'super_admin');
+                    - visibleTree.forEach(item => grouped[item.type].push(item))
+
+                    h6.text-primary 子角色
+                    if grouped[1].length === 0
+                        p.text-muted 无可用子角色
+                    each item in grouped[1]
+                        .form-check
+                            input.form-check-input(
+                                type='checkbox'
+                                name='child_items'
+                                class='child-checkbox'
+                                value=item.name
+                                id=`item-1-${item.name}`
+                                checked=selected.indexOf(item.name) !== -1
+                            )
+                            label.form-check-label(for=`item-1-${item.name}`)= `${item.name} - ${item.description || ''}`
+
+                    h6.text-success.mt-3 权限
+                    if grouped[2].length === 0
+                        p.text-muted 无可用权限
+                    each item in grouped[2]
+                        .form-check
+                            input.form-check-input(
+                                type='checkbox'
+                                name='child_items'
+                                class='child-checkbox'
+                                value=item.name
+                                id=`item-2-${item.name}`
+                                checked=selected.indexOf(item.name) !== -1
+                            )
+                            label.form-check-label(for=`item-2-${item.name}`)= `${item.name} - ${item.description || ''}`
+
+        .col-md-12.mt-3
+            .card
+                .card-header.bg-warning
+                    h3.card-title 可访问菜单
+                .card-body
+                    if roleMenus && roleMenus.length > 0
+                        .d-flex.flex-wrap.gap-2
+                            each menu in roleMenus
+                                span.badge.bg-primary.p-2
+                                    if menu.icon
+                                        i.bi(class=menu.icon me-1)
+                                    else
+                                        i.bi.bi-menu-button-wide.me-1
+                                    | #{menu.name}
+                                    if menu.description
+                                        span.text-muted.ms-1 - #{menu.description}
+                    else
+                        p.text-muted 暂无可访问的菜单
+
+block prepend scripts
+    script(src="/npm/jquery/dist/jquery.min.js", nonce=nonce)
+
+block append scripts
+    script(src="/npm/select2/dist/js/select2.min.js", nonce=nonce)
+    script(nonce=nonce).
+        $(function() {
+            var csrfToken = $('meta[name="csrf-token"]').attr('content');
+            var roleName = '#{role.name}';
+            var processing = false;
+
+            // Toast 提示函数
+            function showToast(message, type) {
+                type = type || 'info';
+                var $toast = $('<div class="toast align-items-center text-bg-' + type + ' border-0 position-fixed" ' +
+                    'style="top: 20px; right: 20px; z-index: 9999;">' +
+                    '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+                    '</div></div>');
+                $('body').append($toast);
+                var toast = new bootstrap.Toast($toast[0], { delay: 2000 });
+                toast.show();
+                $toast.on('hidden.bs.toast', function() { $(this).remove(); });
+            }
+
+            // 树形展开/折叠
+            $(document).on('click', '.tree-toggle', function(e) {
+                e.stopPropagation();
+                var $toggle = $(this);
+                var $children = $toggle.closest('.tree-node-content').next('.tree-children');
+                var $icon = $toggle.find('i');
+                $children.toggleClass('expanded');
+                $icon.toggleClass('bi-chevron-right bi-chevron-down');
+            });
+
+            // 树搜索
+            $('#treeSearch').on('input', function() {
+                var kw = $.trim($(this).val()).toLowerCase();
+                if (!kw) {
+                    $('#ownedTree .tree-node').show();
+                    return;
+                }
+                $('#ownedTree .tree-node').each(function() {
+                    var $node = $(this);
+                    var text = $node.find('.tree-label').text().toLowerCase();
+                    $node.toggle(text.indexOf(kw) !== -1);
+                });
+            });
+
+            // 渲染已拥有的子项树（AJAX 刷新用）
+            function renderOwnedChildren(childrenTree) {
+                var $area = $('#ownedChildrenArea');
+                if (!childrenTree || childrenTree.length === 0) {
+                    $area.find('.tree-container').html('<p class="text-muted">暂无子项</p>');
+                    return;
+                }
+
+                function buildTreeHtml(items, level) {
+                    var html = '';
+                    items.forEach(function(item) {
+                        if (item.type === 3) return; // 跳过路由
+                        var hasChildren = item.children && item.children.length > 0;
+                        var isRole = item.type === 1;
+                        var icon = isRole ? 'bi-people' : (hasChildren ? 'bi-folder2' : 'bi-file-earmark');
+                        var iconClass = isRole ? 'role' : (hasChildren ? 'folder' : 'file');
+                        var labelClass = isRole ? 'role-label' : 'permission-label';
+                        var desc = item.description || '';
+                        var toggleHtml = hasChildren
+                            ? '<span class="tree-toggle" data-toggle="tree"><i class="bi bi-chevron-right"></i></span>'
+                            : '<span style="width:16px;margin-right:4px;display:inline-block;"></span>';
+                        var childrenHtml = hasChildren
+                            ? '<div class="tree-children">' + buildTreeHtml(item.children, level + 1) + '</div>'
+                            : '';
+
+                        html += '<div class="tree-node">';
+                        html += '<div class="tree-node-content">';
+                        html += toggleHtml;
+                        html += '<i class="tree-icon bi ' + icon + ' ' + iconClass + '"></i>';
+                        html += '<span class="tree-label ' + labelClass + '">' + item.name + (desc ? ' - ' + desc : '') + '</span>';
+                        html += '<button class="btn btn-sm btn-outline-danger btn-remove-child ms-auto" data-child-name="' + item.name + '" data-level="' + level + '" title="移除">';
+                        html += '<i class="bi bi-x-circle"></i></button>';
+                        html += '</div>';
+                        html += childrenHtml;
+                        html += '</div>';
+                    });
+                    return html;
+                }
+
+                $area.find('.tree-container').html(buildTreeHtml(childrenTree, 0));
+            }
+
+            // 复选框变化事件 - AJAX 提交
+            $(document).on('change', '.child-checkbox', function() {
+                if (processing) return;
+                
+                var $checkbox = $(this);
+                var childName = $checkbox.val();
+                var isChecked = $checkbox.is(':checked');
+                var url = '/system/rbac/items/children';
+                var method = isChecked ? 'POST' : 'DELETE';
+                var actionText = isChecked ? '添加' : '移除';
+
+                processing = true;
+                $checkbox.prop('disabled', true);
+
+                $.ajax({
+                    url: url,
+                    type: method,
+                    contentType: 'application/json',
+                    headers: { 
+                        'X-CSRF-Token': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    data: JSON.stringify({ 
+                        parent: roleName, 
+                        child: childName 
+                    }),
+                    success: function(response) {
+                        if (response.success) {
+                            showToast(actionText + '成功', 'success');
+                            // 刷新已拥有的子项列表
+                            $.ajax({
+                                url: '/system/rbac/roles/' + roleName + '/children',
+                                type: 'GET',
+                                headers: { 'Accept': 'application/json' },
+                                success: function(res) {
+                                    if (res.success && res.data) {
+                                        // 需要获取树形结构，这里简化处理，重新加载页面
+                                        location.reload();
+                                    }
+                                }
+                            });
+                        } else {
+                            showToast(response.message || actionText + '失败', 'danger');
+                            // 恢复复选框状态
+                            $checkbox.prop('checked', !isChecked);
+                        }
+                    },
+                    error: function(xhr) {
+                        var message = xhr.responseJSON?.message || '请求失败';
+                        showToast(message, 'danger');
+                        // 恢复复选框状态
+                        $checkbox.prop('checked', !isChecked);
+                    },
+                    complete: function() {
+                        processing = false;
+                        $checkbox.prop('disabled', false);
+                    }
+                });
+            });
+
+            // 移除子项按钮点击事件
+            $(document).on('click', '.btn-remove-child', function(e) {
+                e.preventDefault();
+                var $btn = $(this);
+                var childName = $btn.data('child-name');
+                var level = parseInt($btn.data('level')) || 0;
+                
+                // 检查是否为孙项（level > 0）
+                if (level > 0) {
+                    showToast('不可删除孙项', 'warning');
+                    return;
+                }
+                
+                if (!confirm('确定要移除 "' + childName + '" 吗？')) return;
+
+                if (processing) return;
+                processing = true;
+
+                $.ajax({
+                    url: '/system/rbac/items/children',
+                    type: 'DELETE',
+                    contentType: 'application/json',
+                    headers: { 
+                        'X-CSRF-Token': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    data: JSON.stringify({ 
+                        parent: roleName, 
+                        child: childName 
+                    }),
+                    success: function(response) {
+                        if (response.success) {
+                            showToast('移除成功', 'success');
+                            // 取消对应的复选框
+                            $('#item-' + childName).prop('checked', false);
+                            // 重新加载页面以刷新树形结构
+                            setTimeout(function() {
+                                location.reload();
+                            }, 500);
+                        } else {
+                            showToast(response.message || '移除失败', 'danger');
+                        }
+                    },
+                    error: function(xhr) {
+                        var message = xhr.responseJSON?.message || '请求失败';
+                        showToast(message, 'danger');
+                    },
+                    complete: function() {
+                        processing = false;
+                    }
+                });
+            });
+        });

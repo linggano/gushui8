@@ -1,0 +1,17 @@
+extends /layouts/adminlte4.pug
+
+block content
+    .content.d-flex.flex-column.align-items-center.justify-content-center.py-5(min-height='60vh')
+        .text-center
+            h1.text-warning.fw-bold.mb-0(style='font-size: 8rem; line-height: 1;') 401
+            h3.mt-3.mb-2
+                i.bi.bi-person-lock.me-2
+                | 未授权访问
+            p.text-muted.mb-4= message || '您需要登录才能访问此页面'
+            .d-flex.gap-2.justify-content-center
+                a.btn.btn-primary(href='/auth/login')
+                    i.bi.bi-box-arrow-in-right.me-1
+                    | 去登录
+                button.btn.btn-outline-secondary(type='button' onclick='history.back()')
+                    i.bi.bi-arrow-left.me-1
+                    | 返回上一页

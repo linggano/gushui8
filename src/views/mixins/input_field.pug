@@ -1,0 +1,300 @@
+//- src/shared/views/mixins/input_field.pug
+//- AdminLTE4 / Bootstrap 5 风格表单字段混入
+//-
+//- 参数:
+//-   name      - 字段名称（必填），同时用作 id 和 name 属性
+//-   options   - 可选配置对象:
+//-     label         - 字段标签文字（默认: 根据 name 自动生成）
+//-     type          - 字段类型: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'file' | 'date' | 'time' | 'datetime-local' | 'hidden'
+//-     value         - 字段默认值
+//-     placeholder   - 占位符文字
+//-     required      - 是否必填（默认: false）
+//-     disabled      - 是否禁用（默认: false）
+//-     readonly      - 是否只读（默认: false）
+//-     icon          - 输入框左侧图标（Bootstrap Icons 类名，如: 'bi-person'）
+//-     helpText      - 字段下方帮助文字
+//-     errors        - 错误信息对象 { fieldName: '错误消息' }
+//-     error         - 单个错误消息
+//-     class         - 额外 CSS 类
+//-     pattern       - HTML5 正则表达式验证
+//-     min / max     - 数字或日期范围
+//-     minlength / maxlength - 字符串长度限制
+//-     step          - 数字步进值
+//-     autocomplete  - 自动完成属性
+//-     multiple      - 是否允许多选（用于 file 或 select）
+//-
+//-     仅用于 select:
+//-       options       - 选项数组: [{ value: '1', label: '选项1', disabled: false }] 或对象 { '1': '选项1', '2': '选项2' }
+//-       optionLabel   - 请选择提示文字（默认: '请选择'）
+//-       allowClear    - 是否允许清空（添加空选项）
+//-
+//-     仅用于 textarea:
+//-       rows          - 行数（默认: 3）
+//-       cols          - 列数（默认: 自动）
+//-
+//-     仅用于 checkbox/radio:
+//-       checked       - 是否选中
+//-       inline        - 是否内联显示
+//-       choices       - 选项数组: [{ value: '1', label: '选项1', checked: false }]
+//-
+//- 用法:
+//-   +formField('username', { label: '用户名', required: true, icon: 'bi-person', placeholder: '请输入用户名' })
+//-   +formField('email', { type: 'email', required: true })
+//-   +formField('password', { type: 'password', required: true })
+//-   +formField('status', { type: 'select', options: [{ value: '1', label: '正常' }, { value: '0', label: '禁用' }] })
+//-   +formField('description', { type: 'textarea', rows: 5 })
+//-   +formField('avatar', { type: 'file', accept: 'image/*' })
+
+mixin formField(name, options = {})
+  - label = options.label || name
+  - fieldType = options.type || 'text'
+  - value = options.value || ''
+  - placeholder = options.placeholder || (fieldType !== 'file' && fieldType !== 'checkbox' && fieldType !== 'radio' ? '请输入' + label : '')
+  - required = options.required || false
+  - disabled = options.disabled || false
+  - readonly = options.readonly || false
+  - icon = options.icon || ''
+  - helpText = options.helpText || ''
+  - fieldClass = options.class || ''
+  - pattern = options.pattern || ''
+  - min = options.min !== undefined ? options.min : ''
+  - max = options.max !== undefined ? options.max : ''
+  - minlength = options.minlength || ''
+  - maxlength = options.maxlength || ''
+  - step = options.step || ''
+  - autocomplete = options.autocomplete || ''
+  - multiple = options.multiple || false
+  - accept = options.accept || ''
+  - rows = options.rows || 3
+  -
+  - hasError = (options.errors && options.errors[name]) || options.error
+  - errorMsg = (options.errors && options.errors[name]) ? options.errors[name] : (options.error || '')
+  - inputClass = 'form-control' + (hasError ? ' is-invalid' : '') + (fieldClass ? ' ' + fieldClass : '')
+  - isHidden = fieldType === 'hidden'
+  - isCheckbox = fieldType === 'checkbox'
+  - isRadio = fieldType === 'radio'
+  - isTextarea = fieldType === 'textarea'
+  - isSelect = fieldType === 'select'
+  - isFile = fieldType === 'file'
+  - isCheckOrRadio = isCheckbox || isRadio
+  - hasChoices = options.choices && options.choices.length > 0
+
+  //- Hidden 类型直接输出 input
+  if isHidden
+    input(type='hidden' id=name name=name value=value)
+  
+  //- Checkbox 和 Radio 类型
+  if isCheckOrRadio
+    .form-group.mb-3(class=fieldClass)
+      if label && !hasChoices
+        .form-check
+          input.form-check-input(
+            type=fieldType
+            id=name
+            name=name
+            value=value || '1'
+            checked=options.checked || false
+            disabled=disabled
+            required=required
+          )
+          label.form-check-label(for=name)
+            if required
+              span.text-danger.me-1 *
+            = label
+          if helpText
+            small.form-text.text-muted.d-block= helpText
+          if hasError
+            .invalid-feedback= errorMsg
+      
+      if hasChoices
+        label.form-label
+          if required
+            span.text-danger.me-1 *
+          = label
+        if isCheckbox
+          each choice in options.choices
+            .form-check(class=options.inline ? 'form-check-inline' : '')
+              input.form-check-input(
+                type='checkbox'
+                id=name + '_' + choice.value
+                name=name + '[]'
+                value=choice.value
+                checked=choice.checked || false
+                disabled=disabled
+              )
+              label.form-check-label(for=name + '_' + choice.value)= choice.label
+        if isRadio
+          each choice in options.choices
+            .form-check(class=options.inline ? 'form-check-inline' : '')
+              input.form-check-input(
+                type='radio'
+                id=name + '_' + choice.value
+                name=name
+                value=choice.value
+                checked=choice.checked || false
+                disabled=disabled
+              )
+              label.form-check-label(for=name + '_' + choice.value)= choice.label
+        if helpText
+          small.form-text.text-muted= helpText
+        if hasError
+          .invalid-feedback= errorMsg
+
+  //- 其他类型
+  if !isHidden && !isCheckOrRadio
+    .form-group.mb-3(class=fieldClass)
+      if label
+        label.form-label(for=name)
+          if required
+            span.text-danger.me-1 *
+          = label
+      
+      if isTextarea
+        if icon
+          .input-group
+            span.input-group-text
+              i(class=icon)
+            textarea.form-control(
+              id=name
+              name=name
+              rows=rows
+              placeholder=placeholder
+              required=required
+              disabled=disabled
+              readonly=readonly
+              minlength=minlength || undefined
+              maxlength=maxlength || undefined
+              class=hasError ? 'is-invalid' : ''
+            )= value
+        else
+          textarea.form-control(
+            id=name
+            name=name
+            rows=rows
+            placeholder=placeholder
+            required=required
+            disabled=disabled
+            readonly=readonly
+            minlength=minlength || undefined
+            maxlength=maxlength || undefined
+            class=hasError ? 'is-invalid' : ''
+          )= value
+      
+      if isSelect
+        if icon
+          .input-group
+            span.input-group-text
+              i(class=icon)
+            select.form-select(
+              id=name
+              name=name
+              required=required
+              disabled=disabled
+              multiple=multiple
+              class=hasError ? 'is-invalid' : ''
+            )
+              if options.optionLabel !== false
+                option(value='' disabled=required)= options.optionLabel || '请选择'
+              if options.allowClear
+                option(value='')
+              if Array.isArray(options.options)
+                each opt in options.options
+                  option(value=opt.value selected=opt.value === value disabled=opt.disabled)= opt.label
+              else if typeof options.options === 'object'
+                each optLabel, optValue in options.options
+                  option(value=optValue selected=String(optValue) === String(value))= optLabel
+        else
+          select.form-select(
+            id=name
+            name=name
+            required=required
+            disabled=disabled
+            multiple=multiple
+            class=hasError ? 'is-invalid' : ''
+          )
+            if options.optionLabel !== false
+              option(value='' disabled=required)= options.optionLabel || '请选择'
+            if options.allowClear
+              option(value='')
+            if Array.isArray(options.options)
+              each opt in options.options
+                option(value=opt.value selected=opt.value === value disabled=opt.disabled)= opt.label
+            else if typeof options.options === 'object'
+              each optLabel, optValue in options.options
+                option(value=optValue selected=String(optValue) === String(value))= optLabel
+      
+      if isFile
+        if icon
+          .input-group
+            span.input-group-text
+              i(class=icon)
+            input.form-control(
+              type='file'
+              id=name
+              name=name
+              accept=accept || undefined
+              multiple=multiple
+              disabled=disabled
+              required=required
+              class=hasError ? 'is-invalid' : ''
+            )
+        else
+          input.form-control(
+            type='file'
+            id=name
+            name=name
+            accept=accept || undefined
+            multiple=multiple
+            disabled=disabled
+            required=required
+            class=hasError ? 'is-invalid' : ''
+          )
+      
+      if !isTextarea && !isSelect && !isFile
+        if icon
+          .input-group
+            span.input-group-text
+              i(class=icon)
+            input(
+              type=fieldType
+              id=name
+              name=name
+              value=value
+              placeholder=placeholder
+              required=required
+              disabled=disabled
+              readonly=readonly
+              pattern=pattern || undefined
+              min=min || undefined
+              max=max || undefined
+              minlength=minlength || undefined
+              maxlength=maxlength || undefined
+              step=step || undefined
+              autocomplete=autocomplete || undefined
+              class=inputClass
+            )
+        else
+          input(
+            type=fieldType
+            id=name
+            name=name
+            value=value
+            placeholder=placeholder
+            required=required
+            disabled=disabled
+            readonly=readonly
+            pattern=pattern || undefined
+            min=min || undefined
+            max=max || undefined
+            minlength=minlength || undefined
+            maxlength=maxlength || undefined
+            step=step || undefined
+            autocomplete=autocomplete || undefined
+            class=inputClass
+          )
+      
+      if helpText
+        small.form-text.text-muted= helpText
+      
+      if hasError
+        .invalid-feedback= errorMsg
