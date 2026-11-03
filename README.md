@@ -27,18 +27,20 @@ gushui8/
 ├── .env                    # 环境变量（不提交）
 ├── .env.example            # 环境变量示例
 ├── .gitignore
+├── README.md               # 项目说明文档
 ├── public/                 # 静态资源
-├── shared/                 
-│   ├── views/              # 全局 Pug 模板
-│   └── ...
+├── uploads/                # 上传文件存储目录
 ├── src/                    # 源码配置
 │   ├── config/             # 安全与应用配置
+│   ├── modules/            # 切片模块
+│   |   |── auth/           # 认证模块（包含路由、视图、模型）
+│   |   |── users/           # 用户模块（包含路由、视图、模型）
+│   |   └── ...
 │   ├── shared/             # 共享模块与视图
 │   |   |── database/       # Sequelize 模型
-│   |   └── views/          # 全局 Pug 模板
-│   └── ...
-├── features/               # 功能模块（各自包含 routes / views / models）
-│   └── modules/               # 功能模块（各自包含 routes / views / models）
+│   |   └── utils/          # 工具函数、常量等
+│   └── views/              # 全局 Pug 模板
+
 ```
 
 ## 快速开始
